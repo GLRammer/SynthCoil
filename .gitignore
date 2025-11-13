@@ -1,0 +1,9 @@
+*
+!*.*
+!Makefile
+!README
+!src
+.vscode*
+*.obj
+*.o
+*.exe
