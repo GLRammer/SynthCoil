@@ -12,4 +12,4 @@ typedef struct paData;
 /// @param input        input device
 /// @param errorString  string for error catching and output
 /// @return             returns -1 in case of error
-int spinUp(float numSec, paData *data, PaDeviceIndex input, std::string errorString);
+int spinUp(float numSec, paData *data, PaDeviceIndex input, std::string *errorString);
