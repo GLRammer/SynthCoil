@@ -1,4 +1,4 @@
-#Makefile created with assistance from ChatGPT
+# Makefile created with assistance from ChatGPT
 # =========================
 # Simple OpenGL Makefile
 # Linux + Windows (MinGW/MSYS2)
@@ -28,7 +28,7 @@ else
 endif
 
 # --- Libraries ---
-LDLIBS :=
+LDLIBS := ./libs/libportaudio.a
 LDFLAGS :=
 
 ifeq ($(PLATFORM),linux)
@@ -49,7 +49,7 @@ else ifeq ($(PLATFORM),windows)
 
 else
   $(warning Unknown platform; using Linux defaults.)
-  LDLIBS   += -lGL -lGLU -lglut -lm
+  LDLIBS   += -lGL -lGLU -lglut -lm -lfftw3
 endif
 
 # --- Targets ---

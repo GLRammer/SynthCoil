@@ -3,7 +3,11 @@
 !Makefile
 !README
 !src
+!libs
 .vscode*
+fftw*
+*.tar*
 *.obj
 *.o
 *.exe
+*.tgz

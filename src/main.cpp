@@ -1,4 +1,5 @@
 #include <GL/freeglut.h> 
+#include "audio.h"
 
 float angleDeg = 0.0f;
 
