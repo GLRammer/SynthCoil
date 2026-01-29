@@ -28,7 +28,7 @@ else
 endif
 
 # --- Libraries ---
-LDLIBS := ./libs/libportaudio.a
+LDLIBS := ./libs/libportaudio.a -lasound
 LDFLAGS :=
 
 ifeq ($(PLATFORM),linux)

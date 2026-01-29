@@ -1,12 +1,19 @@
 #include <portaudio.h>
-#include <fftw3.h>
+// #include <fftw3.h> Unused atm and may be implemented elsewhere
 #include <string>
 #include <cmath>
 
-/// @brief Data structure for parsing audio
-typedef struct paData;
+typedef float SAMPLE;
 
-/// @brief Spin up the PA stream and callback
+/// @brief Data structure for parsing audio
+typedef struct
+{
+    int frameIndex; /* Index into sample array. */
+    int maxFrameIndex;
+    SAMPLE *recordedSamples;
+} paData;
+
+/// @brief Spin up the PA stream and callback and automatically close stream when it ends
 /// @param numSec       duration of audio in seconds
 /// @param data         data pointer
 /// @param input        input device

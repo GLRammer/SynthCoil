@@ -5,16 +5,8 @@
 #define FRAMES_PER_BUFFER (512)
 #define NUM_CHANNELS (1)
 #define PA_SAMPLE_TYPE paFloat32
-typedef float SAMPLE;
 #define SAMPLE_SILENCE (0.0f)
 #define PRINTF_S_FORMAT "%.8f"
-
-typedef struct
-{
-    int frameIndex; /* Index into sample array. */
-    int maxFrameIndex;
-    SAMPLE *recordedSamples;
-} paData;
 
 // Callback function for portaudio. Called as interrupt. Mostly pulled from recording sample code.
 static int MyStreamCallback(const void *input,
@@ -70,79 +62,94 @@ static int MyStreamCallback(const void *input,
     return finished;
 }
 
-int spinUp(float numSec, paData *data, PaDeviceIndex input, std::string *errorString){
+int spinUp(float numSec, paData *data, PaDeviceIndex input, std::string *errorString)
+{
     // Portaudio setup
     PaStreamParameters inParam;
     PaStream *stream;
-    PaError             err = paNoError;
-    int                 i;
-    int                 totalFrames;
-    int                 numSamples;
-    int                 numBytes;
-    SAMPLE              max, val;
-    double              average;
+    PaError err = paNoError;
+    int i;
+    int totalFrames;
+    int numSamples;
+    int numBytes;
+    // SAMPLE max, val;
+    // double average;
 
+    // Move data initializing and testing to main or whenever data is initially called
+    // Unless spinUp is to be called multiple times
     data->maxFrameIndex = totalFrames = numSec * SAMPLE_RATE;
     data->frameIndex = 0;
     numSamples = totalFrames * NUM_CHANNELS;
     numBytes = numSamples * sizeof(SAMPLE);
-    data->recordedSamples = (SAMPLE *) malloc( numBytes );
+    data->recordedSamples = (SAMPLE *)malloc(numBytes);
 
-    if( data->recordedSamples == NULL )
+    if (data->recordedSamples == NULL)
     {
         *errorString = "Could not allocate record array.";
         return -1;
     }
-    for( i=0; i<numSamples; i++ ) data->recordedSamples[i] = 0;
+    for (i = 0; i < numSamples; i++)
+        data->recordedSamples[i] = 0;
+    //END data initialization and testing
 
     err = Pa_Initialize();
-    if( err != paNoError ) {
+    if (err != paNoError)
+    {
         *errorString = "Initialize Failure.";
         return -1;
     }
-    if(input == paNoDevice){
+
+    // Move device testing to earlier
+    if (input == paNoDevice)
+    {
         *errorString = "No device given.";
         return -1;
     }
-    inParam.channelCount = 2;                    /* stereo input */
+    inParam.channelCount = NUM_CHANNELS; 
     inParam.sampleFormat = PA_SAMPLE_TYPE;
-    inParam.suggestedLatency = Pa_GetDeviceInfo( inParam.device )->defaultLowInputLatency;
+    inParam.suggestedLatency = Pa_GetDeviceInfo(inParam.device)->defaultLowInputLatency;
     inParam.hostApiSpecificStreamInfo = NULL;
 
     err = Pa_OpenStream(
-              &stream,
-              &inParam,
-              NULL,                  /* &outputParameters, */
-              SAMPLE_RATE,
-              FRAMES_PER_BUFFER,
-              paClipOff,      /* we won't output out of range samples so don't bother clipping them */
-              MyStreamCallback,
-              data );
-    if( err != paNoError ){
+        &stream,
+        &inParam,
+        NULL, /* &outputParameters, */
+        SAMPLE_RATE,
+        FRAMES_PER_BUFFER,
+        paClipOff, /* we won't output out of range samples so don't bother clipping them */
+        MyStreamCallback,
+        data);
+    if (err != paNoError)
+    {
         *errorString = "Failed to open stream.";
         return -1;
     }
 
-    err = Pa_StartStream( stream );
-    if( err != paNoError ){
+    err = Pa_StartStream(stream);
+    if (err != paNoError)
+    {
         *errorString = "Failed to start stream.";
         return -1;
     }
 
-    while( ( err = Pa_IsStreamActive( stream ) ) == 1 )
+    while ((err = Pa_IsStreamActive(stream)) == 1)
     {
         Pa_Sleep(1000);
-        printf("index = %d\n", data->frameIndex ); fflush(stdout);
+        printf("index = %d\n", data->frameIndex);
+        fflush(stdout);
     }
-    if( err < 0 ) {
+    if (err < 0)
+    {
         *errorString = "Stream crash.";
         return -1;
     }
 
-    err = Pa_CloseStream( stream );
-    if( err != paNoError ) {
+    err = Pa_CloseStream(stream);
+    if (err != paNoError)
+    {
         *errorString = "Failed to close stream.";
         return -1;
     }
-
+    return 0;
 }
+
