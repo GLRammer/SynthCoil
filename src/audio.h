@@ -2,6 +2,7 @@
 // #include <fftw3.h> Unused atm and may be implemented elsewhere
 #include <string>
 #include <cmath>
+#include <vector>
 
 typedef float SAMPLE;
 
@@ -10,7 +11,7 @@ typedef struct
 {
     int frameIndex; /* Index into sample array. */
     int maxFrameIndex;
-    SAMPLE *recordedSamples;
+    std::vector<SAMPLE> recordedSamples;
 } paData;
 
 /// @brief Spin up the PA stream and callback and automatically close stream when it ends

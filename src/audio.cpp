@@ -80,16 +80,9 @@ int spinUp(float numSec, paData *data, PaDeviceIndex input, std::string *errorSt
     data->maxFrameIndex = totalFrames = numSec * SAMPLE_RATE;
     data->frameIndex = 0;
     numSamples = totalFrames * NUM_CHANNELS;
-    numBytes = numSamples * sizeof(SAMPLE);
-    data->recordedSamples = (SAMPLE *)malloc(numBytes);
+    data->recordedSamples.reserve(numSamples);
 
-    if (data->recordedSamples == NULL)
-    {
-        *errorString = "Could not allocate record array.";
-        return -1;
-    }
-    for (i = 0; i < numSamples; i++)
-        data->recordedSamples[i] = 0;
+    data->recordedSamples.clear();
     //END data initialization and testing
 
     err = Pa_Initialize();
