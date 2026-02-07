@@ -4,7 +4,7 @@
 !README
 !src
 !libs
-.vscode*
+.vs*
 fftw*
 *.tar*
 *.obj

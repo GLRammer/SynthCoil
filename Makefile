@@ -28,34 +28,35 @@ else
 endif
 
 # --- Libraries ---
-LDLIBS := ./libs/libportaudio.a -lasound
+LDLIBS := ./libs/libportaudio.a -lrt -lm -lasound -lfftw3
 LDFLAGS :=
 
 ifeq ($(PLATFORM),linux)
   # Try pkg-config
-  PKG_CFLAGS := $(shell pkg-config --cflags glut glew 2>/dev/null)
-  PKG_LIBS   := $(shell pkg-config --libs glut glew 2>/dev/null)
+  PKG_CFLAGS := $(shell pkg-config --cflags  2>/dev/null)
+  PKG_LIBS   := $(shell pkg-config --libs  2>/dev/null)
+  LDLIBS     += -static-libstdc++ -static-libgcc
 
   ifneq ($(strip $(PKG_LIBS)),)
     CPPFLAGS += $(PKG_CFLAGS)
     LDLIBS   += $(PKG_LIBS)
   else
-    LDLIBS   += -lGL -lGLU -lglut -lm
+    LDLIBS   += -lm
   endif
 
 else ifeq ($(PLATFORM),windows)
   CPPFLAGS +=
-  LDLIBS   += -lglfw3 -lglew32 -lopengl32 -lwinmm -lgdi32 -luser32 -lshell32 -lkernel32
+  LDLIBS   += -lportaudio -lwinmm -lgdi32 -luser32 -lshell32 -lkernel32
 
 else
   $(warning Unknown platform; using Linux defaults.)
-  LDLIBS   += -lGL -lGLU -lglut -lm -lfftw3
+  LDLIBS   += -lm -lfftw3
 endif
 
 # --- Targets ---
 .PHONY: all clean run
 
-all: $(APP)
+all: clean $(APP)
 
 $(APP): $(OBJS)
 	@echo "Linking $(APP)..."

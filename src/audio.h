@@ -3,6 +3,7 @@
 #include <string>
 #include <cmath>
 #include <vector>
+#pragma once
 
 typedef float SAMPLE;
 

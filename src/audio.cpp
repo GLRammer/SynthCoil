@@ -68,10 +68,10 @@ int spinUp(float numSec, paData *data, PaDeviceIndex input, std::string *errorSt
     PaStreamParameters inParam;
     PaStream *stream;
     PaError err = paNoError;
-    int i;
+    // int i;
     int totalFrames;
     int numSamples;
-    int numBytes;
+    // int numBytes;
     // SAMPLE max, val;
     // double average;
 

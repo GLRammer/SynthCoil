@@ -1,19 +1,22 @@
 #include "audio.h"
+#include "freqs.h"
+#include "main.h"
 #include <string>
+#include <iostream>
 
-int main(int argc, char** argv)
+int main()
 {
     paData data;
     std::string errorstr = "";
     if(spinUp(5.0, &data,Pa_GetDefaultInputDevice(),&errorstr)){
         SAMPLE max=0;
-        for(int i=0;i<data.recordedSamples.size();i++){
+        for(int i=0;i<(int)data.recordedSamples.size();i++){
             if(data.recordedSamples.at(i)>max)
                 max = data.recordedSamples.at(i);
         }
-        printf("Max amp of %f",max);
+        std::cout<< "Max amp of " << max << std::endl;
     } else{
-        printf("%s",errorstr);
+        std::cout<<errorstr<<std::endl;
     }
     return 0;
 }
