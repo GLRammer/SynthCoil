@@ -5,20 +5,6 @@ project(synthCoil
     LANGUAGES CXX
 )
 
-# Prevent accidental cross-toolchain compiler selection
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER MATCHES "mingw|msys")
-        message(FATAL_ERROR "Linux build detected but C++ compiler looks like MinGW/MSYS: ${CMAKE_CXX_COMPILER}")
-    endif()
-endif()
-
-if(WIN32)
-    if(CMAKE_CXX_COMPILER MATCHES "/usr/bin/")
-        message(FATAL_ERROR "Windows build detected but compiler is a Linux one: ${CMAKE_CXX_COMPILER}")
-    endif()
-endif()
-
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -30,35 +16,15 @@ src/freqs.cpp
 )
 
 # Grab portaudio
-find_package(portaudio REQUIRED)
+add_subdirectory("vendor/portaudio" "vendor/portaudio" EXCLUDE_FROM_ALL)
 
-if(TARGET portaudio::portaudio)
-    target_link_libraries(synthDemo PRIVATE portaudio::portaudio)
-elseif(TARGET portaudio)
-    target_link_libraries(synthDemo PRIVATE portaudio)
-elseif(TARGET PortAudio::PortAudio)
-    target_link_libraries(synthDemo PRIVATE PortAudio::PortAudio)
-endif()
+target_link_libraries(synthDemo PRIVATE portaudio)
 
 
 # Grab FFTW3
-find_package(FFTW3 CONFIG QUIET)
+add_subdirectory("vendor/fftw3" "vendor/fftw3" EXCLUDE_FROM_ALL)
 
-if (FFTW3_FOUND)
-  message(STATUS "Using FFTW via CMake config")
-  set(FFTW_TARGET FFTW3::fftw3)    
-else()
-  # fallback to pkg-config
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FFTW_PKG QUIET IMPORTED_TARGET fftw3)
-
-  if (FFTW_PKG_FOUND)
-    message(STATUS "Using FFTW via pkg-config")
-    set(FFTW_TARGET PkgConfig::FFTW_PKG)
-  else()
-    message(FATAL_ERROR "FFTW not found.")
-  endif()
-endif()
+target_link_libraries(synthDemo PRIVATE fftw3)
 
 
 target_link_libraries(synthDemo PRIVATE ${FFTW_TARGET})

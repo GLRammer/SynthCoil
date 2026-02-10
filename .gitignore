@@ -1,13 +1,8 @@
-*
-!*.*
-!Makefile
-!README
-!src
-!libs
 .vs*
-fftw*
 *.tar*
 *.obj
 *.o
 *.exe
 *.tgz
+build/
+.cache/
