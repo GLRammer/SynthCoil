@@ -28,14 +28,14 @@ else
 endif
 
 # --- Libraries ---
-LDLIBS := ./libs/libportaudio.a -lrt -lm -lasound -lfftw3
+LDLIBS := ./libs/libportaudio.a -lm -lfftw3
 LDFLAGS :=
 
 ifeq ($(PLATFORM),linux)
   # Try pkg-config
   PKG_CFLAGS := $(shell pkg-config --cflags  2>/dev/null)
   PKG_LIBS   := $(shell pkg-config --libs  2>/dev/null)
-  LDLIBS     += -static-libstdc++ -static-libgcc
+  LDLIBS     += -lasound -lrt -static-libstdc++ -static-libgcc
 
   ifneq ($(strip $(PKG_LIBS)),)
     CPPFLAGS += $(PKG_CFLAGS)
@@ -70,4 +70,4 @@ run: $(APP)
 	./$(APP)
 
 clean:
-	rm -rf $(BUILD_DIR) $(APP)
+	rm -rf $(BUILD_DIR)/* $(APP)
