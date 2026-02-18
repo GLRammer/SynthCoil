@@ -19,16 +19,16 @@ static int MyStreamCallback(const void *input,
 {
     paData *data = (paData *)userData;
     const SAMPLE *rptr = (const SAMPLE *)input;
-    SAMPLE *wptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
+    // SAMPLE *wptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
     long framesToCalc;
     long i;
     int finished;
     unsigned long framesLeft = data->maxFrameIndex - data->frameIndex;
 
-    (void)output; /* Prevent unused variable warnings. */
-    (void)timeInfo;
-    (void)statusFlags;
-    (void)userData;
+    // (void)output; /* Prevent unused variable warnings. */
+    // (void)timeInfo;
+    // (void)statusFlags;
+    // (void)userData;
 
     if (framesLeft < frameCount)
     {
@@ -40,23 +40,24 @@ static int MyStreamCallback(const void *input,
         framesToCalc = frameCount;
         finished = paContinue;
     }
-
+    
     if (input == NULL)
     {
         for (i = 0; i < framesToCalc; i++)
         {
-            *wptr++ = SAMPLE_SILENCE; /* left */
+            data->recordedSamples.push_back(SAMPLE_SILENCE); /* left */
             if (NUM_CHANNELS == 2)
-                *wptr++ = SAMPLE_SILENCE; /* right */
+            data->recordedSamples.push_back(SAMPLE_SILENCE); /* right */
         }
     }
     else
     {
         for (i = 0; i < framesToCalc; i++)
         {
-            *wptr++ = *rptr++; /* left */
+            data->recordedSamples.push_back(*rptr++); /* left */
+            // std::cout<<" " << wptr+i << ":"<<*rptr+i;
             if (NUM_CHANNELS == 2)
-                *wptr++ = *rptr++; /* right */
+            data->recordedSamples.push_back(*rptr++); /* right */
         }
     }
     data->frameIndex += framesToCalc;
@@ -84,7 +85,7 @@ int spinUp(float numSec, paData &data, std::string &errorString)
     data.recordedSamples.reserve(numSamples);
 
     data.recordedSamples.clear();
-    //END data initialization and testing
+    // END data initialization and testing
 
     err = Pa_Initialize();
     if (err != paNoError)
@@ -96,24 +97,42 @@ int spinUp(float numSec, paData &data, std::string &errorString)
     // printf("\n\n%d\n\n", Pa_GetDeviceCount());
 
     int devCnt = Pa_GetDeviceCount();
-    if (devCnt == 0){
+    if (devCnt == 0)
+    {
         errorString = "No devices found.\n";
         return -1;
     }
-    for (int i = 0; i < devCnt; i++)
+    // std::cout << devCnt << " devices found.\n";
+
+    std::cout << "Would you like to use this device: " << Pa_GetDeviceInfo(Pa_GetDefaultInputDevice())->name << " from " << Pa_GetHostApiInfo(Pa_GetDeviceInfo(Pa_GetDefaultInputDevice())->hostApi)->name << std::endl;
+    std::string tmpstr;
+    std::cin >> tmpstr;
+    if (tmpstr == "n" || tmpstr == "no")
     {
-        printf("Would you like to use this device: %s",Pa_GetDeviceInfo(i)->name);
+        for (int i = 0; i < devCnt; i++)
+        {
+            std::cout << "Would you like to use this device: " << Pa_GetDeviceInfo(i)->name << " from " << Pa_GetHostApiInfo(Pa_GetDeviceInfo(i)->hostApi)->name << std::endl;
+            std::cin >> tmpstr;
+            if (tmpstr == "y" || tmpstr == "yes")
+            {
+                devCnt = i;
+                std::cout << "Using this device: " << Pa_GetDeviceInfo(devCnt)->name << std::endl;
+                break;
+            }
+        }
+    }else{
+        devCnt = Pa_GetDefaultInputDevice();
     }
-    
 
     // Move device testing to earlier
-    PaDeviceIndex input = Pa_GetDefaultInputDevice();
+    PaDeviceIndex input = devCnt;
     if (input == paNoDevice)
     {
         errorString = Pa_GetErrorText(err);
         return -1;
     }
-    inParam.channelCount = NUM_CHANNELS; 
+    inParam.device = input;
+    inParam.channelCount = NUM_CHANNELS;
     inParam.sampleFormat = PA_SAMPLE_TYPE;
     inParam.suggestedLatency = Pa_GetDeviceInfo(inParam.device)->defaultLowInputLatency;
     inParam.hostApiSpecificStreamInfo = NULL;
@@ -143,8 +162,8 @@ int spinUp(float numSec, paData &data, std::string &errorString)
     while ((err = Pa_IsStreamActive(stream)) == 1)
     {
         Pa_Sleep(1000);
-        printf("index = %d\n", data.frameIndex);
-        fflush(stdout);
+        std::cout << "index = " << data.frameIndex << std::endl;
+        std::cout << "volume = " << data.recordedSamples[data.frameIndex-1] << std::endl;
     }
     if (err < 0)
     {
@@ -158,6 +177,6 @@ int spinUp(float numSec, paData &data, std::string &errorString)
         errorString = Pa_GetErrorText(err);
         return -1;
     }
+    // std::cout << data.recordedSamples.size() << std::endl;
     return 0;
 }
-

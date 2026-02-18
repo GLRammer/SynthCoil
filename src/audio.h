@@ -2,6 +2,7 @@
 // #include <fftw3.h> Unused atm and may be implemented elsewhere
 #include <string>
 #include <cmath>
+#include <iostream>
 #include <vector>
 #pragma once
 
