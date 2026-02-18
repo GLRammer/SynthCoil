@@ -8,7 +8,7 @@ int main()
 {
     paData data;
     std::string errorstr = "";
-    if(spinUp(5.0, data,errorstr)){
+    if(spinUp(5.0, data,errorstr)==0){
         SAMPLE max=0;
         for(int i=0;i<(int)data.recordedSamples.size();i++){
             if(data.recordedSamples.at(i)>max)

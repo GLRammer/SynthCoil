@@ -93,7 +93,19 @@ int spinUp(float numSec, paData &data, std::string &errorString)
         return -1;
     }
 
-    printf("\n\n%d\n\n", Pa_GetDeviceCount());
+    // printf("\n\n%d\n\n", Pa_GetDeviceCount());
+
+    int devCnt = Pa_GetDeviceCount();
+    if (devCnt == 0){
+        errorString = "No devices found.\n";
+        return -1;
+    }
+    for (int i = 0; i < devCnt; i++)
+    {
+        printf("Would you like to use this device: %s",Pa_GetDeviceInfo(i)->name);
+    }
+    
+
     // Move device testing to earlier
     PaDeviceIndex input = Pa_GetDefaultInputDevice();
     if (input == paNoDevice)
