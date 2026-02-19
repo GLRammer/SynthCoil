@@ -1,9 +1,11 @@
-*
-!*.*
-!Makefile
-!README
-!src
-.vscode*
+.vs/
+.vscode/
+*.tar*
 *.obj
 *.o
 *.exe
+*.tgz
+build/
+.cache/
+samples/
+!vendor/*
