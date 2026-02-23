@@ -1,30 +1,52 @@
 #include "freqs.h"
 
-freqHolder::freqHolder(std::vector<double> freqs,std::vector<double> mags){
+freqHolder::freqHolder(std::vector<float> freqs, std::vector<float> mags)
+{
     // frequencies.swap(freqs);
     // magnitudes.swap(mags);
-    frequencies=freqs;
-    magnitudes=mags;
+    frequencies = freqs;
+    magnitudes = mags;
 }
 
-freqHolder freqGet(std::vector<double> in)
+freqHolder freqGet(std::vector<float> in, int loc)
 {
-    int tempsz = FFTSZ / 2 + 1;
-    std::vector<fftw_complex> out(tempsz);
-    fftw_plan plan = fftw_plan_dft_r2c_1d(FFTSZ, in.data(), reinterpret_cast<fftw_complex *>(out.data()), FFTW_MEASURE);
-    fftw_execute(plan);
-    std::vector<double> mags(tempsz);
-    for (int i = 0; i < tempsz; i++)
+    // Expected size of output vector
+    int outSz = (FFTSZ / 2) + 1;
+
+    // Output vector
+    std::vector<fftwf_complex> out(outSz);
+
+    // set up subvector
+    std::vector<float> subIn(FFTSZ);
+
+    // Setup fftw and execute
+    fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFTSZ, subIn.data(), out.data(), FFTW_MEASURE);
+    memcpy(subIn.data(), in.data(), FFTSZ);
+    fftwf_execute(plan);
+    // Vector for holding magnitudes
+    std::vector<float> mags(outSz);
+
+    // Calculation of magnitudes
+    for (int i = 0; i < outSz; i++)
     {
-        double re = out[i][0];
-        double im = out[i][1];
-        double mag = std::hypot(re, im);
-        mags[i] = mag / tempsz;
+        // real num
+        float re = out[i][0];
+        // imaginary num
+        float im = out[i][1];
+        // actual calculations
+        float mag = std::hypot(re, im);
+        mags.push_back(mag / (float)outSz);
     }
-    std::vector<double> freqs(tempsz);
-    for (int i = 0; i < tempsz; i++)
+
+    // Vector for holding frequencies
+    std::vector<float> freqs(outSz);
+
+    // Calculation of frequencies
+    for (int i = 0; i < outSz; i++)
     {
-        freqs[i]=(double) i * (double) FFTSZ / (double)in.size();
+        freqs.push_back((float)i * (float)FFTSZ / (float)in.size());
     }
-    return freqHolder(freqs,mags);
+    
+    // Return frequencies and their magnitudes
+    return freqHolder(freqs, mags);
 }
