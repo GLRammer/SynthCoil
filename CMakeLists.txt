@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(synthDemo
 src/main.cpp
 src/audio.cpp
-# src/freqs.cpp
+src/freqs.cpp
 )
 
 # Grab portaudio
@@ -22,9 +22,16 @@ target_link_libraries(synthDemo PRIVATE portaudio)
 
 
 # Grab FFTW3
-# add_subdirectory("vendor/fftw3" "vendor/fftw3" EXCLUDE_FROM_ALL)
+add_subdirectory("vendor/fftw3" "vendor/fftw3" EXCLUDE_FROM_ALL)
 
-# target_link_libraries(synthDemo PRIVATE fftw3)
+target_link_libraries(synthDemo PRIVATE fftw3f)
 
+target_include_directories(synthDemo PRIVATE "vendor/fftw3/api" )
 
-# target_link_libraries(synthDemo PRIVATE ${FFTW_TARGET})
+if (WIN32)
+    add_custom_command( TARGET synthDemo POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:fftw3f>"
+        "$<TARGET_FILE_DIR:synthDemo>"
+    )
+endif()
