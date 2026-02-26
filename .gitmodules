@@ -3,4 +3,4 @@
 	url = https://github.com/PortAudio/portaudio.git
 [submodule "vendor/SDL"]
 	path = vendor/SDL
-	url = https://github.com/libsdl-org/SDL/tree/release-3.2.4
+	url = https://github.com/libsdl-org/SDL.git
