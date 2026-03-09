@@ -4,44 +4,267 @@
 #include <string>
 #include <iostream>
 
-int main()
+// Dear ImGui stuffs
+#include "imgui.h"
+#include "imgv.h"
+
+void catchStream(audio myAudio, paData &data, std::string &errorstr);
+
+int main(int argc, char *argv[])
 {
+    SDL_Init(SDL_INIT_VIDEO);
     paData data;
     std::string errorstr = "";
-    if (spinUp(5.0, data, errorstr) == 0)
+    audio myAudio;
+    if (myAudio.spinUp(10.0, &data)!=0){
+        std::cerr << myAudio.getErr() << std::endl;
+        return -1;
+    }
+
+    //get devices info for menu
+    int devcnt=Pa_GetDeviceCount();
+    std::vector<std::string> devices;
+    devices.reserve(devcnt);
+    for(int i=0;i<devcnt;i++)
+        devices.push_back(Pa_GetDeviceInfo(i)->name);
+
+    //////  The following section is modified code from ImGui/examples/example_sdl3_vulkan/
+
+    // SDL init
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
     {
-        SAMPLE max = 0;
-        for (int i = 0; i < (int)data.recordedSamples.size(); i++)
+        std::cerr << "Error: SDL_Init(): "<<SDL_GetError()<<std::endl;
+        return 1;
+    }
+    // Create window with Vulkan graphics context
+    float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+    SDL_WindowFlags window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    SDL_Window* window = SDL_CreateWindow("SynthCoil", (int)(1280 * main_scale), (int)(800 * main_scale), window_flags);
+    if (window == nullptr)
+    {
+        std::cerr << "Error: SDL_CreateWindow(): "<<SDL_GetError()<<std::endl;
+        return 1;
+    }
+
+    ImVector<const char*> extensions;
+    {
+        uint32_t sdl_extensions_count = 0;
+        const char* const* sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_extensions_count);
+        for (uint32_t n = 0; n < sdl_extensions_count; n++)
+            extensions.push_back(sdl_extensions[n]);
+    }
+    SetupVulkan(extensions);
+
+    // Create Window Surface
+    VkSurfaceKHR surface;
+    VkResult err;
+    if (SDL_Vulkan_CreateSurface(window, g_Instance, g_Allocator, &surface) == 0)
+    {
+        printf("Failed to create Vulkan surface.\n");
+        return 1;
+    }
+
+    // Create Framebuffers
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+    SetupVulkanWindow(wd, surface, w, h);
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_ShowWindow(window);
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL3_InitForVulkan(window);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    //init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
+    init_info.Instance = g_Instance;
+    init_info.PhysicalDevice = g_PhysicalDevice;
+    init_info.Device = g_Device;
+    init_info.QueueFamily = g_QueueFamily;
+    init_info.Queue = g_Queue;
+    init_info.PipelineCache = g_PipelineCache;
+    init_info.DescriptorPool = g_DescriptorPool;
+    init_info.MinImageCount = g_MinImageCount;
+    init_info.ImageCount = wd->ImageCount;
+    init_info.Allocator = g_Allocator;
+    init_info.PipelineInfoMain.RenderPass = wd->RenderPass;
+    init_info.PipelineInfoMain.Subpass = 0;
+    init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.CheckVkResultFn = check_vk_result;
+    ImGui_ImplVulkan_Init(&init_info);
+
+    // Our state
+    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+    // Main loop
+    bool done = false;
+    bool devSel = false;
+    while (!done)
+    {
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
         {
-            if (data.recordedSamples[i] > max)
-                max = data.recordedSamples[i];
+            ImGui_ImplSDL3_ProcessEvent(&event);
+            if (event.type == SDL_EVENT_QUIT)
+                done = true;
+            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(window))
+                done = true;
+        }
+        if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)
+        {
+            SDL_Delay(10);
+            continue;
         }
 
-        // freq sample
-        freqHolder tempout = freqGet(data.recordedSamples);
-        std::vector<SAMPLE> freqs = tempout.frequencies, mags = tempout.magnitudes;
-        for (int i = FFTSZ; i + FFTSZ < data.recordedSamples.size(); i += FFTSZ)
+        // Start the Dear ImGui frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
         {
-            tempout = freqGet(data.recordedSamples, i);
-            freqs.insert(freqs.end(), tempout.frequencies.begin(), tempout.frequencies.end());
-            mags.insert(mags.end(), tempout.magnitudes.begin(), tempout.magnitudes.end());
-        }
-        // analyze sample
-        max = 0;
-        SAMPLE maxFreq;
-        for (int i = 0; i < freqs.size(); i++)
-        {
-            if (mags[i] > max)
-            {
-                max = mags[i];
-                maxFreq = freqs[i];
+            if(!devSel){
+
+                ImGui::Begin("Select Device");                          // Create a window called "Hello, world!" and append into it.
+
+                ImGui::Text("Please select an input device.");               // Display some text (you can use a format strings too)
+                
+                int devselected=Pa_GetDefaultInputDevice();
+                const char* previewVal = devices[devselected].c_str();
+                if(ImGui::BeginCombo("Select Device",previewVal)){
+                    for (int i=0;i<devcnt;i++){
+                        const bool is_sel=(devselected==i);
+                        if(ImGui::Selectable(devices[i].c_str(),is_sel))
+                            devselected=i;
+                    }
+                    ImGui::EndCombo();
+                }
+                if(ImGui::Button("Select")){
+                    if(myAudio.selectDev(devselected)==0){
+                        devSel=true;
+                        if(myAudio.startStream()){
+                            std::cout << errorstr << std::endl;
+                        }
+                    }else{
+                        ImGui::Text("It appears that device is invalid, please try another.");
+                    }
+                }
+                
+                // for (int i=0;i<devcnt;i++){
+                //     if (ImGui::Button(Pa_GetDeviceInfo(i)->name)){                           
+                //         if(myAudio.selectDev(i)==0){
+                //             devSel=true;
+                //             if(myAudio.startStream()){
+                //                 std::cout << errorstr << std::endl;
+                //             }
+                //         }else{
+                //             ImGui::Text("It appears that device is invalid, please try another.");
+                //         }
+                //     }
+                // }
+            }else{
+                ImGui::Begin("Current Volume");
+
+                ImGui::Text("I hear %.3f", data.recordedSamples[data.frameIndex-1]);
+                if (myAudio.catchStream()){
+                    catchStream(myAudio,data,errorstr);
+                    done=true;
+                }
             }
+
+            ImGui::End();
         }
-        std::cout << "Max freq= " << maxFreq << std::endl;
+
+        // Rendering
+        ImGui::Render();
+        ImDrawData* draw_data = ImGui::GetDrawData();
+        const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+        if (!is_minimized)
+        {
+            wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+            wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+            wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+            wd->ClearValue.color.float32[3] = clear_color.w;
+            FrameRender(wd, draw_data);
+            FramePresent(wd);
+        }
     }
-    else
-    {
-        std::cout << errorstr << std::endl;
-    }
+    /////// End modified example code
+
+    // if (myAudio.startStream() == 0)
+    // {
+    //     SAMPLE max = 0;
+    //     for (int i = 0; i < (int)data.recordedSamples.size(); i++)
+    //     {
+    //         if (data.recordedSamples[i] > max)
+    //             max = data.recordedSamples[i];
+    //     }
+
+    //     // freq sample
+    //     freqHolder tempout = freqGet(data.recordedSamples);
+    //     std::vector<SAMPLE> freqs = tempout.frequencies, mags = tempout.magnitudes;
+    //     for (int i = FFTSZ; i + FFTSZ < data.recordedSamples.size(); i += FFTSZ)
+    //     {
+    //         tempout = freqGet(data.recordedSamples, i);
+    //         freqs.insert(freqs.end(), tempout.frequencies.begin(), tempout.frequencies.end());
+    //         mags.insert(mags.end(), tempout.magnitudes.begin(), tempout.magnitudes.end());
+    //     }
+    //     // analyze sample
+    //     max = 0;
+    //     SAMPLE maxFreq;
+    //     for (int i = 0; i < freqs.size(); i++)
+    //     {
+    //         if (mags[i] > max)
+    //         {
+    //             max = mags[i];
+    //             maxFreq = freqs[i];
+    //         }
+    //     }
+    //     std::cout << "Max freq= " << maxFreq << std::endl;
+    // }
+    // else
+    // {
+    //     std::cout << errorstr << std::endl;
+    // }
     return 0;
+}
+
+void catchStream(audio myAudio, paData &data, std::string &errorstr){
+    SAMPLE max = 0;
+    for (int i = 0; i < (int)data.recordedSamples.size(); i++)
+    {
+        if (data.recordedSamples[i] > max)
+            max = data.recordedSamples[i];
+    }
+
+    // freq sample
+    freqHolder tempout = freqGet(data.recordedSamples);
+    std::vector<SAMPLE> freqs = tempout.frequencies, mags = tempout.magnitudes;
+    for (int i = FFTSZ; i + FFTSZ < data.recordedSamples.size(); i += FFTSZ)
+    {
+        tempout = freqGet(data.recordedSamples, i);
+        freqs.insert(freqs.end(), tempout.frequencies.begin(), tempout.frequencies.end());
+        mags.insert(mags.end(), tempout.magnitudes.begin(), tempout.magnitudes.end());
+    }
+    // analyze sample
+    max = 0;
+    SAMPLE maxFreq;
+    for (int i = 0; i < freqs.size(); i++)
+    {
+        if (mags[i] > max)
+        {
+            max = mags[i];
+            maxFreq = freqs[i];
+        }
+    }
+    std::cout << "Max freq= " << maxFreq << std::endl;
 }

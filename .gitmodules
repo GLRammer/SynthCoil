@@ -1,3 +1,9 @@
 [submodule "vendor/portaudio"]
 	path = vendor/portaudio
 	url = https://github.com/PortAudio/portaudio.git
+[submodule "vendor/SDL"]
+	path = vendor/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "vendor/ImGui"]
+	path = vendor/ImGui
+	url = https://github.com/ocornut/imgui.git

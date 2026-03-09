@@ -2,6 +2,7 @@
 #include <fftw3.h>
 #include <vector>
 #include <cmath>
+#include <cstring>
 #include <iostream>
 
 #define FFTSZ 2048
