@@ -1,6 +1,5 @@
 #include "audio.h"
 #include "freqs.h"
-#include "main.h"
 #include <string>
 #include <iostream>
 
@@ -8,34 +7,31 @@
 #include "imgui.h"
 #include "imgv.h"
 
-void catchStream(audio myAudio, paData &data, std::string &errorstr);
+void catchStream(audio myAudio, freqHolder myfreqs, std::string &errorstr);
 
 int main(int argc, char *argv[])
 {
-    SDL_Init(SDL_INIT_VIDEO);
-    paData data;
-    std::string errorstr = "";
-    audio myAudio;
-    if (myAudio.spinUp(10.0, &data)!=0){
-        std::cerr << myAudio.getErr() << std::endl;
-        return -1;
-    }
-
-    //get devices info for menu
-    int devcnt=Pa_GetDeviceCount();
-    std::vector<std::string> devices;
-    devices.reserve(devcnt);
-    for(int i=0;i<devcnt;i++)
-        devices.push_back(Pa_GetDeviceInfo(i)->name);
-
-    //////  The following section is modified code from ImGui/examples/example_sdl3_vulkan/
-
     // SDL init
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
     {
         std::cerr << "Error: SDL_Init(): "<<SDL_GetError()<<std::endl;
         return 1;
     }
+    std::string errorstr = "";
+    audio myAudio;
+    freqHolder myFreqs;
+
+    //get devices info for menu
+    int devCnt;
+    SDL_AudioDeviceID* devices=SDL_GetAudioRecordingDevices(&devCnt);
+    if(devCnt==0 || devices==NULL){
+        std::cerr << "No devices found\n";
+        return -1;
+    }
+    // std::cout << SDL_GetAudioDeviceName(devices[0]) << std::endl;
+    //////  The following section is modified code from ImGui/examples/example_sdl3_vulkan/
+
+    
     // Create window with Vulkan graphics context
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_WindowFlags window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
@@ -137,46 +133,38 @@ int main(int argc, char *argv[])
                 ImGui::Begin("Select Device");                          // Create a window called "Hello, world!" and append into it.
 
                 ImGui::Text("Please select an input device.");               // Display some text (you can use a format strings too)
-                
-                int devselected=Pa_GetDefaultInputDevice();
-                const char* previewVal = devices[devselected].c_str();
+                ImGui::Text("%d devices detected.", devCnt);
+                int devselected=0;
+                const char* previewVal = SDL_GetAudioDeviceName(devices[devselected]);
                 if(ImGui::BeginCombo("Select Device",previewVal)){
-                    for (int i=0;i<devcnt;i++){
+                    for (int i=0;i<devCnt;i++){
                         const bool is_sel=(devselected==i);
-                        if(ImGui::Selectable(devices[i].c_str(),is_sel))
+                        std::string tempstr=std::to_string(i)+": "+std::string(SDL_GetAudioDeviceName(devices[i]));
+                        if(ImGui::Selectable(tempstr.c_str(),is_sel))
                             devselected=i;
                     }
                     ImGui::EndCombo();
                 }
                 if(ImGui::Button("Select")){
-                    if(myAudio.selectDev(devselected)==0){
-                        devSel=true;
-                        if(myAudio.startStream()){
-                            std::cout << errorstr << std::endl;
-                        }
-                    }else{
-                        ImGui::Text("It appears that device is invalid, please try another.");
+                    myAudio.selectDev(devices[devselected]);
+                    // std::cout<< SDL_GetCurrentAudioDriver()<<std::endl;
+                    devSel=true;
+                    if(myAudio.startStream()==-1){
+                        std::cerr << myAudio.getErr() << std::endl;
+                        done=true;
+                        SDL_free(devices);
                     }
+                    
                 }
                 
-                // for (int i=0;i<devcnt;i++){
-                //     if (ImGui::Button(Pa_GetDeviceInfo(i)->name)){                           
-                //         if(myAudio.selectDev(i)==0){
-                //             devSel=true;
-                //             if(myAudio.startStream()){
-                //                 std::cout << errorstr << std::endl;
-                //             }
-                //         }else{
-                //             ImGui::Text("It appears that device is invalid, please try another.");
-                //         }
-                //     }
-                // }
             }else{
                 ImGui::Begin("Current Volume");
-
-                ImGui::Text("I hear %.3f", data.recordedSamples[data.frameIndex-1]);
-                if (myAudio.catchStream()){
-                    catchStream(myAudio,data,errorstr);
+                if(myAudio.available()==0){
+                    ImGui::Text("I hear %.3f", myAudio.currVol());
+                    myFreqs.freqGet(myAudio);
+                }
+                if(ImGui::Button("End Stream")){
+                    catchStream(myAudio,myFreqs,errorstr);
                     done=true;
                 }
             }
@@ -238,33 +226,17 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void catchStream(audio myAudio, paData &data, std::string &errorstr){
-    SAMPLE max = 0;
-    for (int i = 0; i < (int)data.recordedSamples.size(); i++)
-    {
-        if (data.recordedSamples[i] > max)
-            max = data.recordedSamples[i];
-    }
-
-    // freq sample
-    freqHolder tempout = freqGet(data.recordedSamples);
-    std::vector<SAMPLE> freqs = tempout.frequencies, mags = tempout.magnitudes;
-    for (int i = FFTSZ; i + FFTSZ < data.recordedSamples.size(); i += FFTSZ)
-    {
-        tempout = freqGet(data.recordedSamples, i);
-        freqs.insert(freqs.end(), tempout.frequencies.begin(), tempout.frequencies.end());
-        mags.insert(mags.end(), tempout.magnitudes.begin(), tempout.magnitudes.end());
-    }
+void catchStream(audio myAudio,freqHolder myfreqs, std::string &errorstr){
     // analyze sample
-    max = 0;
+    SAMPLE max = 0;
     SAMPLE maxFreq;
-    for (int i = 0; i < freqs.size(); i++)
+    for (int i = 0; i < myfreqs.frequencies.size(); i++)
     {
-        if (mags[i] > max)
+        if (myfreqs.magnitudes[i] > max)
         {
-            max = mags[i];
-            maxFreq = freqs[i];
+            max = myfreqs.magnitudes[i];
+            maxFreq = myfreqs.frequencies[i];
         }
     }
-    std::cout << "Max freq= " << maxFreq << std::endl;
+    std::cout << "Max freq= " << maxFreq << " at " << max << std::endl;
 }

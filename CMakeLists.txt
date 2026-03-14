@@ -5,7 +5,7 @@ project(synthCoil
     LANGUAGES CXX
 )
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(IMGUI_DIR vendor/ImGui/)
@@ -35,9 +35,9 @@ find_package(Vulkan REQUIRED)
 target_link_libraries(synthDemo PRIVATE Vulkan::Vulkan)
 
 # Grab portaudio
-add_subdirectory("vendor/portaudio" "vendor/portaudio" EXCLUDE_FROM_ALL)
+# add_subdirectory("vendor/portaudio" "vendor/portaudio" EXCLUDE_FROM_ALL)
 
-target_link_libraries(synthDemo PRIVATE portaudio)
+# target_link_libraries(synthDemo PRIVATE portaudio)
 
 
 # Grab FFTW3
