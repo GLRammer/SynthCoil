@@ -12,7 +12,7 @@
 class freqHolder
 {
 private:
-    std::vector<float> freqbuff;
+    float* freqbuff;
     fftwf_complex* out;
     fftwf_plan plan;
 public:

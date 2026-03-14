@@ -239,4 +239,5 @@ void catchStream(audio myAudio,freqHolder myfreqs, std::string &errorstr){
         }
     }
     std::cout << "Max freq= " << maxFreq << " at " << max << std::endl;
+    std::cout << "num of freqs sampled: " << myfreqs.frequencies.size() << std::endl;
 }

@@ -34,18 +34,16 @@ int audio::startStream(){
 
 int audio::catchStream(void* buff,int len){
     int running=0;
-    void* tempbuf=malloc(len);
+    char tempbuf[len];
     while(running<len){
-        int temp=SDL_GetAudioStreamData(stream,tempbuf,len);
+        int temp=SDL_GetAudioStreamData(stream,tempbuf+running,len-running);
         if (temp==-1){
             errorString=SDL_GetError();
-            free(tempbuf);
             return -1;
         }
         running+=temp;
     }
     memcpy(buff,tempbuf,len);
-    free(tempbuf);
     return 0;
 }
 

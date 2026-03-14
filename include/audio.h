@@ -9,7 +9,7 @@
 
 
 // Define globals for audio
-#define SAMPLE_RATE (44100)
+#define SAMPLE_RATE (48000)
 #define NUM_CHANNELS (1)
 #define PRINTF_S_FORMAT "%.8f"
 typedef float SAMPLE;
