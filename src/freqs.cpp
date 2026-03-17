@@ -1,31 +1,42 @@
 #include "freqs.h"
 
-freqHolder::freqHolder(std::vector<float> freqs, std::vector<float> mags)
-{
-    // frequencies.swap(freqs);
-    // magnitudes.swap(mags);
-    frequencies = freqs;
-    magnitudes = mags;
-}
-
-freqHolder freqGet(std::vector<float> in, int loc)
-{
+freqHolder::freqHolder(){
     // Expected size of output vector
     int outSz = (FFTSZ / 2) + 1;
 
-    // Output vector
-    std::vector<fftwf_complex> out(outSz);
+    // Output vector and input buffer
+    out=(fftwf_complex*) malloc(sizeof(fftwf_complex)*outSz);
+    freqbuff=(float*)malloc(sizeof(float)*FFTSZ);
 
-    // set up subvector
-    std::vector<float> subIn(FFTSZ);
+    // Setup fftw
+    plan = fftwf_plan_dft_r2c_1d(FFTSZ, freqbuff, out, FFTW_MEASURE);
+    frequencies.clear();
+    magnitudes.clear();
+}
 
-    // Setup fftw and execute
-    fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFTSZ, subIn.data(), out.data(), FFTW_MEASURE);
-    memcpy(subIn.data(), in.data(), FFTSZ);
+
+freqHolder::~freqHolder(){
+    fftwf_destroy_plan(plan);
+    free(out);
+    free(freqbuff);
+}
+
+void freqHolder::freqGet(audio& in)
+{
+    // Expected size of output vector
+    int outSz = (FFTSZ / 2) + 1;
+    // float tempbuff[FFTSZ];
+    if(in.catchStream((char*)freqbuff,sizeof(float)*FFTSZ)==-1)
+    return;
+    // freqbuff.clear();
+    // freqbuff.assign(tempbuff,&tempbuff[FFTSZ]);
+    
     fftwf_execute(plan);
-    // Vector for holding magnitudes
-    std::vector<float> mags(outSz);
-
+    
+    // clear magnitude vector
+    magnitudes.clear();
+    magnitudes.reserve(outSz);
+    
     // Calculation of magnitudes
     for (int i = 0; i < outSz; i++)
     {
@@ -35,18 +46,17 @@ freqHolder freqGet(std::vector<float> in, int loc)
         float im = out[i][1];
         // actual calculations
         float mag = std::hypot(re, im);
-        mags.push_back(mag / (float)outSz);
+        magnitudes.push_back(mag / (float)outSz);
     }
 
-    // Vector for holding frequencies
-    std::vector<float> freqs(outSz);
+    //  Clear frequency vector
+    frequencies.clear();
+    frequencies.reserve(outSz);
 
     // Calculation of frequencies
     for (int i = 0; i < outSz; i++)
     {
-        freqs.push_back((float)i * (float)FFTSZ / (float)in.size());
+        frequencies.push_back((float)i * (float)SAMPLE_RATE / (float)FFTSZ);
     }
     
-    // Return frequencies and their magnitudes
-    return freqHolder(freqs, mags);
 }
