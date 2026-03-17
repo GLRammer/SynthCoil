@@ -33,7 +33,7 @@ public:
     int startStream();
     /// @brief Check audio stream and cleanup if done
     /// @return Return exit status
-    int catchStream(void* buff,int len);
+    int catchStream(char* buff,int len);
     std::string getErr();
     int available();
     float currVol();

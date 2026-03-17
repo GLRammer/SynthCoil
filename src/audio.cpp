@@ -13,7 +13,7 @@ audio::~audio()
     SDL_DestroyAudioStream(stream);
 }
 
-int audio::selectDev(SDL_AudioDeviceID selected=SDL_AUDIO_DEVICE_DEFAULT_RECORDING){
+int audio::selectDev(SDL_AudioDeviceID selected){
     dev=selected;
     return 0;
 }
@@ -32,31 +32,34 @@ int audio::startStream(){
     return 0;
 }
 
-int audio::catchStream(void* buff,int len){
-    int running=0;
-    char tempbuf[len];
-    while(running<len){
-        int temp=SDL_GetAudioStreamData(stream,tempbuf+running,len-running);
-        if (temp==-1){
-            errorString=SDL_GetError();
-            return -1;
-        }
-        running+=temp;
+int audio::catchStream(char* buff,int len){
+    int temp=SDL_GetAudioStreamData(stream,buff,len);
+    if (temp==-1){
+        errorString=SDL_GetError();
+        return -1;
     }
-    memcpy(buff,tempbuf,len);
-    return 0;
+    return temp;
 }
 
 
 int audio::available(){
-    if (SDL_GetAudioStreamAvailable(stream)<=0){
+    // if(SDL_AudioStreamDevicePaused(stream)){
+    //     if(!SDL_ResumeAudioStreamDevice(stream)){
+    //         errorString=SDL_GetError();
+    //         return -1;
+    //     }
+    // }
+    int avail=SDL_GetAudioStreamAvailable(stream);
+    if (avail<=0){
+        if(avail==-1)
+            errorString=SDL_GetError();
         return -1;
     }
-    return 0;
+    return avail;
 }
 
 float audio::currVol(){
-    if(available()==0){
+    if(available()>=0){
         float buffer=0;
         SDL_GetAudioStreamData(stream,&buffer,sizeof(float));
         return buffer;

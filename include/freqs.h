@@ -20,6 +20,6 @@ public:
     ~freqHolder();
     std::vector<float> frequencies;
     std::vector<float> magnitudes;
-    void freqGet(audio in);
+    void freqGet(audio& in);
 };
 

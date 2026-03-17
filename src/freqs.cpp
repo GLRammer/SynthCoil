@@ -21,12 +21,12 @@ freqHolder::~freqHolder(){
     free(freqbuff);
 }
 
-void freqHolder::freqGet(audio in)
+void freqHolder::freqGet(audio& in)
 {
     // Expected size of output vector
     int outSz = (FFTSZ / 2) + 1;
     // float tempbuff[FFTSZ];
-    if(in.catchStream(freqbuff,sizeof(float)*FFTSZ)==-1)
+    if(in.catchStream((char*)freqbuff,sizeof(float)*FFTSZ)==-1)
     return;
     // freqbuff.clear();
     // freqbuff.assign(tempbuff,&tempbuff[FFTSZ]);

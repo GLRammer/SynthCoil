@@ -6,6 +6,7 @@
 *.exe
 *.tgz
 build/
+wbuild/
 .cache/
 samples/
 !vendor/*

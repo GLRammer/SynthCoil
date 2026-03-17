@@ -7,45 +7,51 @@
 #include "imgui.h"
 #include "imgv.h"
 
-void catchStream(audio myAudio, freqHolder myfreqs, std::string &errorstr);
+void catchStream(audio &myAudio, freqHolder myfreqs, std::string &errorstr);
 
 int main(int argc, char *argv[])
 {
     // SDL init
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
     {
-        std::cerr << "Error: SDL_Init(): "<<SDL_GetError()<<std::endl;
+        std::cerr << "Error: SDL_Init(): " << SDL_GetError() << std::endl;
         return 1;
     }
     std::string errorstr = "";
     audio myAudio;
     freqHolder myFreqs;
 
-    //get devices info for menu
+    // get devices info for menu
     int devCnt;
-    SDL_AudioDeviceID* devices=SDL_GetAudioRecordingDevices(&devCnt);
-    if(devCnt==0 || devices==NULL){
+    SDL_AudioDeviceID *devices = SDL_GetAudioRecordingDevices(&devCnt);
+    if (devCnt == 0 || devices == NULL)
+    {
         std::cerr << "No devices found\n";
         return -1;
     }
     // std::cout << SDL_GetAudioDeviceName(devices[0]) << std::endl;
+
+    // Storage for last heard amplitude
+    float storeme = 0;
+    // Setup for vertical bar volume meter
+    ImVec2 volBarDim(40.0f, 200.0f);
+
     //////  The following section is modified code from ImGui/examples/example_sdl3_vulkan/
 
-    
     // Create window with Vulkan graphics context
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_WindowFlags window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    SDL_Window* window = SDL_CreateWindow("SynthCoil", (int)(1280 * main_scale), (int)(800 * main_scale), window_flags);
+    SDL_Window *window = SDL_CreateWindow("SynthCoil", (int)(1280 * main_scale), (int)(800 * main_scale), window_flags);
     if (window == nullptr)
     {
-        std::cerr << "Error: SDL_CreateWindow(): "<<SDL_GetError()<<std::endl;
+        std::cerr << "Error: SDL_CreateWindow(): " << SDL_GetError() << std::endl;
         return 1;
     }
 
-    ImVector<const char*> extensions;
+    ImVector<const char *> extensions;
     {
         uint32_t sdl_extensions_count = 0;
-        const char* const* sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_extensions_count);
+        const char *const *sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_extensions_count);
         for (uint32_t n = 0; n < sdl_extensions_count; n++)
             extensions.push_back(sdl_extensions[n]);
     }
@@ -63,7 +69,7 @@ int main(int argc, char *argv[])
     // Create Framebuffers
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
-    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+    ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
     SetupVulkanWindow(wd, surface, w, h);
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
@@ -71,18 +77,19 @@ int main(int argc, char *argv[])
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    ImGuiIO &io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
+    // ImGui::StyleColorsLight();
 
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForVulkan(window);
     ImGui_ImplVulkan_InitInfo init_info = {};
-    //init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
+    // init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
     init_info.Instance = g_Instance;
     init_info.PhysicalDevice = g_PhysicalDevice;
     init_info.Device = g_Device;
@@ -105,6 +112,7 @@ int main(int argc, char *argv[])
     // Main loop
     bool done = false;
     bool devSel = false;
+    int devselected = 0;
     while (!done)
     {
         SDL_Event event;
@@ -128,44 +136,83 @@ int main(int argc, char *argv[])
         ImGui::NewFrame();
 
         {
-            if(!devSel){
+            if (!devSel)
+            {
 
-                ImGui::Begin("Select Device");                          // Create a window called "Hello, world!" and append into it.
+                ImGui::Begin("Select Device"); // Create a window called "Hello, world!" and append into it.
 
-                ImGui::Text("Please select an input device.");               // Display some text (you can use a format strings too)
+                ImGui::Text("Please select an input device."); // Display some text (you can use a format strings too)
                 ImGui::Text("%d devices detected.", devCnt);
-                int devselected=0;
-                const char* previewVal = SDL_GetAudioDeviceName(devices[devselected]);
-                if(ImGui::BeginCombo("Select Device",previewVal)){
-                    for (int i=0;i<devCnt;i++){
-                        const bool is_sel=(devselected==i);
-                        std::string tempstr=std::to_string(i)+": "+std::string(SDL_GetAudioDeviceName(devices[i]));
-                        if(ImGui::Selectable(tempstr.c_str(),is_sel))
-                            devselected=i;
+                const char *previewVal = SDL_GetAudioDeviceName(devices[devselected]);
+                if (ImGui::BeginCombo("Select Device", previewVal))
+                {
+                    for (int i = 0; i < devCnt; i++)
+                    {
+                        const bool is_sel = (devselected == i);
+                        std::string tempstr = std::to_string(i) + ": " + std::string(SDL_GetAudioDeviceName(devices[i]));
+                        if (ImGui::Selectable(tempstr.c_str(), is_sel))
+                            devselected = i;
                     }
                     ImGui::EndCombo();
                 }
-                if(ImGui::Button("Select")){
+                if (ImGui::Button("Select"))
+                {
                     myAudio.selectDev(devices[devselected]);
                     // std::cout<< SDL_GetCurrentAudioDriver()<<std::endl;
-                    devSel=true;
-                    if(myAudio.startStream()==-1){
+                    devSel = true;
+                    // std::cout << SDL_GetAudioDeviceName(devices[devselected]) << std::endl;
+                    if (myAudio.startStream() == -1)
+                    {
                         std::cerr << myAudio.getErr() << std::endl;
-                        done=true;
-                        SDL_free(devices);
+                        done = true;
                     }
-                    
+                    // SDL_free(devices);
                 }
-                
-            }else{
+            }
+            else
+            {
                 ImGui::Begin("Current Volume");
-                if(myAudio.available()==0){
-                    ImGui::Text("I hear %.3f", myAudio.currVol());
+
+                // Check for audio in stream
+                if (myAudio.available() >= 0)
+                {
+                    // store amplitude for volume bar
+                    storeme = std::fabs(myAudio.currVol());
+                    // grab frequency data
                     myFreqs.freqGet(myAudio);
                 }
-                if(ImGui::Button("End Stream")){
-                    catchStream(myAudio,myFreqs,errorstr);
-                    done=true;
+
+                // Setup and draw volume bar
+                ImVec2 barplace = ImGui::GetCursorScreenPos();
+                ImDrawList *barlist = ImGui::GetWindowDrawList();
+
+                // Background
+                barlist->AddRectFilled(
+                    barplace,
+                    ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
+                    IM_COL32(50, 50, 50, 255));
+
+                // Fill for volume
+                float volHeight = volBarDim.y * storeme;
+                barlist->AddRectFilled(
+                    ImVec2(barplace.x, barplace.y + volBarDim.y - volHeight),
+                    ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
+                    IM_COL32(255, 50, 50, 255));
+
+                // Reserve room for volume bar
+                ImGui::Dummy(volBarDim);
+
+                if (ImGui::Button("End Stream"))
+                {
+                    catchStream(myAudio, myFreqs, errorstr);
+                    done = true;
+                }
+
+                // Catch all error, for when things get nasty.
+                if (myAudio.getErr() != "")
+                {
+                    std::cerr << "Catch err: " << myAudio.getErr() << std::endl;
+                    done = true;
                 }
             }
 
@@ -174,7 +221,7 @@ int main(int argc, char *argv[])
 
         // Rendering
         ImGui::Render();
-        ImDrawData* draw_data = ImGui::GetDrawData();
+        ImDrawData *draw_data = ImGui::GetDrawData();
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
         if (!is_minimized)
         {
@@ -226,7 +273,8 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void catchStream(audio myAudio,freqHolder myfreqs, std::string &errorstr){
+void catchStream(audio &myAudio, freqHolder myfreqs, std::string &errorstr)
+{
     // analyze sample
     SAMPLE max = 0;
     SAMPLE maxFreq;
@@ -239,5 +287,4 @@ void catchStream(audio myAudio,freqHolder myfreqs, std::string &errorstr){
         }
     }
     std::cout << "Max freq= " << maxFreq << " at " << max << std::endl;
-    std::cout << "num of freqs sampled: " << myfreqs.frequencies.size() << std::endl;
 }
