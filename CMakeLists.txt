@@ -16,6 +16,7 @@ add_executable(synthDemo
     src/audio.cpp
     src/imgv.cpp
     src/freqs.cpp
+    src/shapeGen.cpp
     ${IMGUI_DIR}imgui.cpp
     ${IMGUI_DIR}imgui_demo.cpp
     ${IMGUI_DIR}imgui_draw.cpp

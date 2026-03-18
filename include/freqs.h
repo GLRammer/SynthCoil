@@ -3,7 +3,7 @@
 #include "audio.h"
 #include <vector>
 #include <cmath>
-#include <cstring>
+#include <string>
 #include <iostream>
 
 #define FFTSZ 2048
