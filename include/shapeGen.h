@@ -8,7 +8,7 @@ struct shapeVertex
 {
     // [x,y,z]
     float pos[3];
-    // Generated according to distance from peak frequencies. Range [0,255]
+    // Generated according to distance from peak frequencies. Range [0,1]
     float alpha;
 };
 

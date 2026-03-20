@@ -43,7 +43,7 @@ void shapeGen::generate()
 }
 
 // Use Gaussian bump to shape z axis
-float shapeGen::bumper(float x)
+float shapeGen::bumper(float x) 
 {
     if(smooth<=0){
         return 0.0f;
@@ -71,7 +71,7 @@ float shapeGen::alpha(float x)
     for (auto &&point : freqVec)
     {
         float dx = x - point.first;
-        float dy = 255 * std::exp(-(dx * dx) / smooth);
+        float dy = 1 * std::exp(-(dx * dx) / smooth);
         if (dy > y)
         {
             y = dy;
@@ -136,7 +136,7 @@ bool shapeGen::generate(std::vector<float> freqs, std::vector<float> mags)
         }
         for (int j = 0; j < freqCount; j++)
         {
-            if (mags[i] >= mags[tempind[j]])
+            if (mags[i] > mags[tempind[j]])
             {
                 tempind[j] = i;
                 continue;

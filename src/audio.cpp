@@ -16,24 +16,29 @@ audio::~audio()
         SDL_DestroyAudioStream(stream);
 }
 
-int audio::selectDev(SDL_AudioDeviceID selected){
+bool audio::selectDev(SDL_AudioDeviceID selected){
+    if(SDL_IsAudioDevicePlayback(selected)){
+        errorString="Selected device is not a recording device.";
+        return false;
+    }
     dev=selected;
-    return 0;
+    return true;
 }
 
-int audio::startStream(){
+bool audio::startStream(){
     
     stream=SDL_OpenAudioDeviceStream(dev,&spec,NULL,NULL);   
     if (stream==NULL){
         errorString=SDL_GetError();
-        return -1;
+        return false;
     }
     if(!SDL_ResumeAudioStreamDevice(stream)){
         errorString=SDL_GetError();
         SDL_DestroyAudioStream(stream);
-        return -1;
+        stream=nullptr;
+        return false;
     }
-    return 0;
+    return true;
 }
 
 int audio::catchStream(char* buff,int len){
@@ -41,7 +46,7 @@ int audio::catchStream(char* buff,int len){
     int temp=SDL_GetAudioStreamData(stream,buff,len);
     while(total<len && temp!=-1){
         total+=temp;
-        int temp=SDL_GetAudioStreamData(stream,buff+total,len-total);
+        temp=SDL_GetAudioStreamData(stream,buff+total,len-total);
     }
     if (temp==-1){
         errorString=SDL_GetError();
@@ -50,6 +55,13 @@ int audio::catchStream(char* buff,int len){
     return temp;
 }
 
+bool audio::clearBuff(){
+    if(!SDL_ClearAudioStream(stream)){
+        errorString=SDL_GetError();
+        return false;
+    }
+    return true;
+}
 
 int audio::available(){
     // if(SDL_AudioStreamDevicePaused(stream)){

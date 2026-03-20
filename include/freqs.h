@@ -15,13 +15,13 @@ private:
     float* freqbuff;
     fftwf_complex* out;
     fftwf_plan plan;
-    float peak;
+    std::pair<float,float> peak;
 public:
     freqHolder();
     ~freqHolder();
     std::vector<float> frequencies;
     std::vector<float> magnitudes;
-    float getPeak();
+    std::pair<float,float> getPeak();
     void freqGet(audio& in);
 };
 

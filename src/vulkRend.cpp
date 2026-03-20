@@ -116,6 +116,7 @@ bool vulkRend::createBuffer(
     // Check for failure while allocating
     if (vkAllocateMemory(device, &memInfo, nullptr, &mem) != VK_SUCCESS)
     {
+        vkFreeMemory(device,mem,nullptr);
         errStr = "Failed memory allocation.";
         return false;
     }
@@ -123,6 +124,7 @@ bool vulkRend::createBuffer(
     // Check for failure while binding memory and buffer
     if (vkBindBufferMemory(device, buff, mem, 0))
     {
+        vkFreeMemory(device,mem,nullptr);
         errStr = "Failed memory buffer binding.";
         return false;
     }
@@ -187,7 +189,10 @@ bool vulkRend::uploadVert(const std::vector<shapeVertex> &verts)
     void *data = nullptr;
 
     // Map data to vertMem and pipe verts into memory
-    vkMapMemory(device, vertMem, 0, sz, 0, &data);
+    if(vkMapMemory(device, vertMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED){
+        errStr = "Failed to map vertecies to memory";
+        return false;
+    }
     memcpy(data, verts.data(), sz);
 
     // Unmap vertMem
@@ -223,7 +228,10 @@ bool vulkRend::uploadInd(const std::vector<int> &ind)
     void *data = nullptr;
 
     // Map data to indMem and pipe verts into memory
-    vkMapMemory(device, indMem, 0, sz, 0, &data);
+    if(vkMapMemory(device, indMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED){
+        errStr = "Failed to map indexes to memory";
+        return false;
+    }
     memcpy(data, ind.data(), sz);
 
     // Unmap indMem
@@ -273,7 +281,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     shaderStages[1].pName = "main";
 
     // Setup vertex binding
-    VkVertexInputBindingDescription binding;
+    VkVertexInputBindingDescription binding{};
     binding.binding = 0;
     binding.stride = sizeof(shapeVertex);
     binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
@@ -319,7 +327,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -394,6 +402,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
         errStr = "Failed to create graphics pipeline.";
         vkDestroyShaderModule(device, vertShader, nullptr);
         vkDestroyShaderModule(device, fragShader, nullptr);
+        vkDestroyPipelineLayout(device,pipeLayout,nullptr);
         return false;
     }
 

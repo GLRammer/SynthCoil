@@ -27,13 +27,16 @@ public:
     /// @brief Select device for audio streams
     /// @param selected Index of selected device
     /// @return         Returns exit status
-    int selectDev(SDL_AudioDeviceID selected);
+    bool selectDev(SDL_AudioDeviceID selected);
     /// @brief Start audio stream
     /// @return Return exit status
-    int startStream();
+    bool startStream();
     /// @brief Check audio stream and cleanup if done
     /// @return Return exit status
     int catchStream(char* buff,int len);
+    /// @brief Wipe the stream buffer. This discards data but allows fresh data to be collected.
+    /// @return False on failure, check getErr() for details.
+    bool clearBuff();
     std::string getErr();
     int available();
     float currVol();
