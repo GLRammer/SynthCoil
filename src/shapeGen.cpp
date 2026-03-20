@@ -45,6 +45,9 @@ void shapeGen::generate()
 // Use Gaussian bump to shape z axis
 float shapeGen::bumper(float x)
 {
+    if(smooth<=0){
+        return 0.0f;
+    }
     float y = 0;
     for (auto &&point : freqVec)
     {
@@ -61,6 +64,9 @@ float shapeGen::bumper(float x)
 // Use gaussian bump for aplha channels on vertecies
 float shapeGen::alpha(float x)
 {
+    if(smooth<=0){
+        return 0.0f;
+    }
     float y = 0;
     for (auto &&point : freqVec)
     {
@@ -117,7 +123,8 @@ bool shapeGen::generate(std::vector<float> freqs, std::vector<float> mags)
     }
 
     // Temporary storage for loudest frequencies indexes
-    std::vector<int> tempind(freqCount);
+    std::vector<int> tempind;
+    tempind.reserve(freqCount);
 
     // Find <freqCount> loudest frequencies and store their indexes
     for (i = 0; i < freqs.size(); i++)
@@ -132,6 +139,7 @@ bool shapeGen::generate(std::vector<float> freqs, std::vector<float> mags)
             if (mags[i] >= mags[tempind[j]])
             {
                 tempind[j] = i;
+                continue;
             }
         }
     }
@@ -148,6 +156,7 @@ bool shapeGen::generate(std::vector<float> freqs, std::vector<float> mags)
 
     // Call internal generate() to build shape
     generate();
+    return true;
 }
 
 void shapeGen::setFreqCnt(int count)

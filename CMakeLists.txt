@@ -11,12 +11,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(IMGUI_DIR vendor/ImGui/)
 include_directories(${IMGUI_DIR} ${IMGUI_DIR}/backends include)
 
+set(SHADERDIR ${CMAKE_SOURCE_DIR}/shaders/)
+
+set(SHADERS 
+    ${SHADERDIR}coil.vert
+    ${SHADERDIR}coil.frag
+)
+
 add_executable(synthDemo
     src/main.cpp
     src/audio.cpp
     src/imgv.cpp
     src/freqs.cpp
     src/shapeGen.cpp
+    src/vulkRend.cpp
     ${IMGUI_DIR}imgui.cpp
     ${IMGUI_DIR}imgui_demo.cpp
     ${IMGUI_DIR}imgui_draw.cpp
@@ -35,11 +43,9 @@ target_link_libraries(synthDemo PRIVATE SDL3::SDL3)
 find_package(Vulkan REQUIRED)
 target_link_libraries(synthDemo PRIVATE Vulkan::Vulkan)
 
-# Grab portaudio
-# add_subdirectory("vendor/portaudio" "vendor/portaudio" EXCLUDE_FROM_ALL)
-
-# target_link_libraries(synthDemo PRIVATE portaudio)
-
+# Grab GLSLC for compiling shaders
+find_program(GLSLC_EXECUTABLE glslc HINTS ${Vulkan_GLSLC_EXECUTABLE})
+# find_program(GLSLC_EXECUTABLE glslc)
 
 # Grab FFTW3
 add_subdirectory("vendor/fftw3" "vendor/fftw3" EXCLUDE_FROM_ALL)
@@ -48,6 +54,27 @@ target_link_libraries(synthDemo PRIVATE fftw3f)
 
 target_include_directories(synthDemo PRIVATE "vendor/fftw3/api" )
 
+# Setup Shader compilation at build
+set(SPIRV_OUTPUTS)
+
+foreach(SHADER ${SHADERS})
+    get_filename_component(FILE_NAME ${SHADER} NAME)
+    set(SPIRV ${CMAKE_BINARY_DIR}/shaders/${FILE_NAME}.spv)
+
+    add_custom_command(
+        OUTPUT ${SPIRV}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders
+        COMMAND ${GLSLC_EXECUTABLE} ${SHADER} -o ${SPIRV}
+        DEPENDS ${SHADER}
+        COMMENT "Compiling shader ${FILE_NAME}"
+    )
+    list(APPEND SPIRV_OUTPUTS ${SPIRV})
+endforeach()
+
+add_custom_target(Shaders ALL DEPENDS ${SPIRV_OUTPUTS})
+add_dependencies(synthDemo Shaders) 
+
+# If windows target, copy .dlls
 if (WIN32)
     add_custom_command( TARGET synthDemo POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -25,17 +25,16 @@ void freqHolder::freqGet(audio& in)
 {
     // Expected size of output vector
     int outSz = (FFTSZ / 2) + 1;
-    // float tempbuff[FFTSZ];
+    
     if(in.catchStream((char*)freqbuff,sizeof(float)*FFTSZ)==-1)
     return;
-    // freqbuff.clear();
-    // freqbuff.assign(tempbuff,&tempbuff[FFTSZ]);
     
     fftwf_execute(plan);
     
     // clear magnitude vector
     magnitudes.clear();
     magnitudes.reserve(outSz);
+    peak=0;
     
     // Calculation of magnitudes
     for (int i = 0; i < outSz; i++)
@@ -45,8 +44,10 @@ void freqHolder::freqGet(audio& in)
         // imaginary num
         float im = out[i][1];
         // actual calculations
-        float mag = std::hypot(re, im);
-        magnitudes.push_back(mag / (float)outSz);
+        float mag = std::hypot(re, im)/ (float)outSz;
+        magnitudes.push_back(mag);
+        if(peak<mag)
+            peak=mag;
     }
 
     //  Clear frequency vector
@@ -60,3 +61,5 @@ void freqHolder::freqGet(audio& in)
     }
     
 }
+
+float freqHolder::getPeak(){return peak;}

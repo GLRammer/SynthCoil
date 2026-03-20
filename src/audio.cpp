@@ -5,12 +5,15 @@ audio::audio(){
     spec.channels=NUM_CHANNELS;
     spec.format=SDL_AUDIO_F32;
     spec.freq=SAMPLE_RATE;
+    dev=SDL_AUDIO_DEVICE_DEFAULT_RECORDING;
+    stream=nullptr;
 }
 
 
 audio::~audio()
 {
-    SDL_DestroyAudioStream(stream);
+    if(stream!=nullptr)
+        SDL_DestroyAudioStream(stream);
 }
 
 int audio::selectDev(SDL_AudioDeviceID selected){
@@ -19,7 +22,7 @@ int audio::selectDev(SDL_AudioDeviceID selected){
 }
 
 int audio::startStream(){
-
+    
     stream=SDL_OpenAudioDeviceStream(dev,&spec,NULL,NULL);   
     if (stream==NULL){
         errorString=SDL_GetError();
@@ -27,13 +30,19 @@ int audio::startStream(){
     }
     if(!SDL_ResumeAudioStreamDevice(stream)){
         errorString=SDL_GetError();
+        SDL_DestroyAudioStream(stream);
         return -1;
     }
     return 0;
 }
 
 int audio::catchStream(char* buff,int len){
+    int total=0;
     int temp=SDL_GetAudioStreamData(stream,buff,len);
+    while(total<len && temp!=-1){
+        total+=temp;
+        int temp=SDL_GetAudioStreamData(stream,buff+total,len-total);
+    }
     if (temp==-1){
         errorString=SDL_GetError();
         return -1;

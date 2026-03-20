@@ -1,5 +1,7 @@
 #include "audio.h"
 #include "freqs.h"
+#include "shapeGen.h"
+#include "vulkRend.h"
 #include <string>
 #include <iostream>
 
@@ -7,7 +9,7 @@
 #include "imgui.h"
 #include "imgv.h"
 
-void catchStream(audio &myAudio, freqHolder myfreqs, std::string &errorstr);
+void catchStream(audio &myAudio, freqHolder& myfreqs, std::string &errorstr);
 
 int main(int argc, char *argv[])
 {
@@ -62,7 +64,7 @@ int main(int argc, char *argv[])
     VkResult err;
     if (SDL_Vulkan_CreateSurface(window, g_Instance, g_Allocator, &surface) == 0)
     {
-        printf("Failed to create Vulkan surface.\n");
+        std::cerr << "Failed to create Vulkan surface. SDL ERR: " << SDL_GetError() << std::endl;
         return 1;
     }
 
@@ -109,9 +111,21 @@ int main(int argc, char *argv[])
     // Our state
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    // Initialize shape generator/mesh holder
+    shapeGen myShape;
+    std::vector<shapeVertex> verts;
+    std::vector<int> ind;
+
+    // Initialize custom vulkan renderer
+    vulkRend myRend(g_PhysicalDevice,g_Device,g_Queue,g_QueueFamily,wd->RenderPass);
+    if(!myRend.initPipe("shaders/coil.vert.spv","shaders/coil.frag.spv")){
+        std::cout<<myRend.getErr()<<std::endl;
+    }
+
     // Main loop
     bool done = false;
     bool devSel = false;
+    bool displayshape=false;
     int devselected = 0;
     while (!done)
     {
@@ -136,7 +150,12 @@ int main(int argc, char *argv[])
         ImGui::NewFrame();
 
         {
-            if (!devSel)
+            if(displayshape){
+                ImGui::Begin("Lookie");
+                if(ImGui::Button("Seen")){
+                    done=true;
+                }
+            }else if (!devSel)
             {
 
                 ImGui::Begin("Select Device"); // Create a window called "Hello, world!" and append into it.
@@ -166,7 +185,6 @@ int main(int argc, char *argv[])
                         std::cerr << myAudio.getErr() << std::endl;
                         done = true;
                     }
-                    // SDL_free(devices);
                 }
             }
             else
@@ -176,10 +194,14 @@ int main(int argc, char *argv[])
                 // Check for audio in stream
                 if (myAudio.available() >= 0)
                 {
-                    // store amplitude for volume bar
-                    storeme = std::fabs(myAudio.currVol());
                     // grab frequency data
                     myFreqs.freqGet(myAudio);
+                    // store magnitude for volume bar
+                    storeme = std::fabs(myFreqs.getPeak());
+                    // update shape and renderer
+                    if(myShape.generate(myFreqs.frequencies,myFreqs.magnitudes) && myShape.getLatestShape(verts,ind)){
+                        myRend.updateMesh(verts,ind);
+                    }
                 }
 
                 // Setup and draw volume bar
@@ -205,7 +227,7 @@ int main(int argc, char *argv[])
                 if (ImGui::Button("End Stream"))
                 {
                     catchStream(myAudio, myFreqs, errorstr);
-                    done = true;
+                    displayshape = true;
                 }
 
                 // Catch all error, for when things get nasty.
@@ -229,55 +251,37 @@ int main(int argc, char *argv[])
             wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
             wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
             wd->ClearValue.color.float32[3] = clear_color.w;
-            FrameRender(wd, draw_data);
+            if(myShape.getVertCnt()>0){
+                myFrameRender(wd,draw_data,myRend);
+            }else{
+                FrameRender(wd, draw_data);
+            }
             FramePresent(wd);
         }
     }
+    SDL_free(devices);
+    err = vkDeviceWaitIdle(g_Device);
+    check_vk_result(err);
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+
+    CleanupVulkanWindow(&g_MainWindowData);
+    CleanupVulkan();
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     /////// End modified example code
 
-    // if (myAudio.startStream() == 0)
-    // {
-    //     SAMPLE max = 0;
-    //     for (int i = 0; i < (int)data.recordedSamples.size(); i++)
-    //     {
-    //         if (data.recordedSamples[i] > max)
-    //             max = data.recordedSamples[i];
-    //     }
-
-    //     // freq sample
-    //     freqHolder tempout = freqGet(data.recordedSamples);
-    //     std::vector<SAMPLE> freqs = tempout.frequencies, mags = tempout.magnitudes;
-    //     for (int i = FFTSZ; i + FFTSZ < data.recordedSamples.size(); i += FFTSZ)
-    //     {
-    //         tempout = freqGet(data.recordedSamples, i);
-    //         freqs.insert(freqs.end(), tempout.frequencies.begin(), tempout.frequencies.end());
-    //         mags.insert(mags.end(), tempout.magnitudes.begin(), tempout.magnitudes.end());
-    //     }
-    //     // analyze sample
-    //     max = 0;
-    //     SAMPLE maxFreq;
-    //     for (int i = 0; i < freqs.size(); i++)
-    //     {
-    //         if (mags[i] > max)
-    //         {
-    //             max = mags[i];
-    //             maxFreq = freqs[i];
-    //         }
-    //     }
-    //     std::cout << "Max freq= " << maxFreq << std::endl;
-    // }
-    // else
-    // {
-    //     std::cout << errorstr << std::endl;
-    // }
     return 0;
 }
 
-void catchStream(audio &myAudio, freqHolder myfreqs, std::string &errorstr)
+void catchStream(audio &myAudio, freqHolder &myfreqs, std::string &errorstr)
 {
+
     // analyze sample
     SAMPLE max = 0;
-    SAMPLE maxFreq;
+    SAMPLE maxFreq=0;
     for (int i = 0; i < myfreqs.frequencies.size(); i++)
     {
         if (myfreqs.magnitudes[i] > max)
