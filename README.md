@@ -30,5 +30,6 @@ Feel free to add `-j <int>` to the second command where `<int>` is the number of
 ### Windows
 Currently unable to build *on* Windows, but a Linux system can build *for* Windows by adding `-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake  -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=./windows-toolchain.cmake` to your CMake configure command (assuming you have vcpkg and installed vulkan using it).
 ## Execution
-Currently prompts user for an audio device from a drop-down menu, then continuously grabs and processes audio while rendering a shape to the screen and a volume bar. Current shape is not the final expected shape.
+Currently prompts user for an audio device from a drop-down menu, then continuously grabs and processes audio while rendering a shape to the screen and a volume bar. Current rendering does not meet final expectations, but is usefull for the interim.
+
 In a terminal of choice run `./build/synthDemo` for Linux or `.\build\synthDemo.exe` on Windows.
