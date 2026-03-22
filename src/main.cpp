@@ -1,5 +1,7 @@
 #include "audio.h"
 #include "freqs.h"
+#include "shapeGen.h"
+#include "vulkRend.h"
 #include <string>
 #include <iostream>
 
@@ -7,7 +9,7 @@
 #include "imgui.h"
 #include "imgv.h"
 
-void catchStream(audio &myAudio, freqHolder myfreqs, std::string &errorstr);
+void catchStream(audio &myAudio, freqHolder &myfreqs, std::string &errorstr);
 
 int main(int argc, char *argv[])
 {
@@ -62,7 +64,7 @@ int main(int argc, char *argv[])
     VkResult err;
     if (SDL_Vulkan_CreateSurface(window, g_Instance, g_Allocator, &surface) == 0)
     {
-        printf("Failed to create Vulkan surface.\n");
+        std::cerr << "Failed to create Vulkan surface. SDL ERR: " << SDL_GetError() << std::endl;
         return 1;
     }
 
@@ -109,182 +111,188 @@ int main(int argc, char *argv[])
     // Our state
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    // Initialize shape generator/mesh holder
+    shapeGen myShape;
+    std::vector<shapeVertex> verts;
+    std::vector<int> ind;
+
     // Main loop
     bool done = false;
     bool devSel = false;
+    bool displayshape = false;
     int devselected = 0;
-    while (!done)
     {
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
+        // Initialize custom vulkan renderer
+        vulkRend myRend(g_PhysicalDevice, g_Device, g_Queue, g_QueueFamily, wd->RenderPass);
+        if (!myRend.initPipe("shaders/coil.vert.spv", "shaders/coil.frag.spv"))
         {
-            ImGui_ImplSDL3_ProcessEvent(&event);
-            if (event.type == SDL_EVENT_QUIT)
-                done = true;
-            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(window))
-                done = true;
+            std::cout << myRend.getErr() << std::endl;
         }
-        if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)
+        while (!done)
         {
-            SDL_Delay(10);
-            continue;
-        }
-
-        // Start the Dear ImGui frame
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
-
-        {
-            if (!devSel)
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
             {
+                ImGui_ImplSDL3_ProcessEvent(&event);
+                if (event.type == SDL_EVENT_QUIT)
+                    done = true;
+                if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(window))
+                    done = true;
+            }
+            if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)
+            {
+                SDL_Delay(10);
+                continue;
+            }
 
-                ImGui::Begin("Select Device"); // Create a window called "Hello, world!" and append into it.
+            // Start the Dear ImGui frame
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplSDL3_NewFrame();
+            ImGui::NewFrame();
 
-                ImGui::Text("Please select an input device."); // Display some text (you can use a format strings too)
-                ImGui::Text("%d devices detected.", devCnt);
-                const char *previewVal = SDL_GetAudioDeviceName(devices[devselected]);
-                if (ImGui::BeginCombo("Select Device", previewVal))
+            {
+                if (displayshape)
                 {
-                    for (int i = 0; i < devCnt; i++)
+                    ImGui::Begin("Lookie");
+                    if (ImGui::Button("Seen"))
                     {
-                        const bool is_sel = (devselected == i);
-                        std::string tempstr = std::to_string(i) + ": " + std::string(SDL_GetAudioDeviceName(devices[i]));
-                        if (ImGui::Selectable(tempstr.c_str(), is_sel))
-                            devselected = i;
-                    }
-                    ImGui::EndCombo();
-                }
-                if (ImGui::Button("Select"))
-                {
-                    myAudio.selectDev(devices[devselected]);
-                    // std::cout<< SDL_GetCurrentAudioDriver()<<std::endl;
-                    devSel = true;
-                    // std::cout << SDL_GetAudioDeviceName(devices[devselected]) << std::endl;
-                    if (myAudio.startStream() == -1)
-                    {
-                        std::cerr << myAudio.getErr() << std::endl;
                         done = true;
                     }
-                    // SDL_free(devices);
                 }
+                else if (!devSel)
+                {
+
+                    ImGui::Begin("Select Device"); // Create a window called "Hello, world!" and append into it.
+
+                    ImGui::Text("Please select an input device."); // Display some text (you can use a format strings too)
+                    ImGui::Text("%d devices detected.", devCnt);
+                    const char *previewVal = SDL_GetAudioDeviceName(devices[devselected]);
+                    if (ImGui::BeginCombo("Select Device", previewVal))
+                    {
+                        for (int i = 0; i < devCnt; i++)
+                        {
+                            const bool is_sel = (devselected == i);
+                            std::string tempstr = std::to_string(i) + ": " + std::string(SDL_GetAudioDeviceName(devices[i]));
+                            if (ImGui::Selectable(tempstr.c_str(), is_sel))
+                                devselected = i;
+                        }
+                        ImGui::EndCombo();
+                    }
+                    if (ImGui::Button("Select"))
+                    {
+                        if (myAudio.selectDev(devices[devselected]))
+                        {
+                            // std::cout<< SDL_GetCurrentAudioDriver()<<std::endl;
+                            devSel = true;
+                            // std::cout << SDL_GetAudioDeviceName(devices[devselected]) << std::endl;
+                            if (!myAudio.startStream())
+                            {
+                                std::cerr << myAudio.getErr() << std::endl;
+                                done = true;
+                            }
+                        }
+                        else
+                        {
+                            std::cerr << myAudio.getErr() << std::endl;
+                            devselected = 0;
+                            ImGui::Text("That device was invalid!");
+                        }
+                    }
+                }
+                else
+                {
+                    ImGui::Begin("Current Volume");
+
+                    // Check for audio in stream
+                    if (myAudio.available() >= 0)
+                    {
+                        // grab frequency data
+                        myFreqs.freqGet(myAudio);
+                        // store magnitude for volume bar
+                        storeme = std::fabs(myFreqs.getPeak().first);
+                        // update shape and renderer
+                        if (myShape.generate(myFreqs.frequencies, myFreqs.magnitudes) && myShape.getLatestShape(verts, ind))
+                        {
+                            myRend.updateMesh(verts, ind);
+                        }
+                        if (!myAudio.clearBuff())
+                        {
+                            std::cerr << myAudio.getErr() << std::endl;
+                        }
+                    }
+
+                    // Setup and draw volume bar
+                    ImVec2 barplace = ImGui::GetCursorScreenPos();
+                    ImDrawList *barlist = ImGui::GetWindowDrawList();
+
+                    // Background
+                    barlist->AddRectFilled(
+                        barplace,
+                        ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
+                        IM_COL32(50, 50, 50, 255));
+
+                    // Fill for volume
+                    float volHeight = volBarDim.y * storeme;
+                    barlist->AddRectFilled(
+                        ImVec2(barplace.x, barplace.y + volBarDim.y - volHeight),
+                        ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
+                        IM_COL32(255, 50, 50, 255));
+
+                    // Reserve room for volume bar
+                    ImGui::Dummy(volBarDim);
+
+                    if (ImGui::Button("End Stream"))
+                    {
+                        std::cout << "Max freq= " << myFreqs.getPeak().second << " at " << myFreqs.getPeak().first << std::endl;
+                        displayshape = true;
+                    }
+
+                    // Catch all error, for when things get nasty.
+                    if (myAudio.getErr() != "")
+                    {
+                        std::cerr << "Catch err: " << myAudio.getErr() << std::endl;
+                        done = true;
+                    }
+                }
+
+                ImGui::End();
             }
-            else
+
+            // Rendering
+            ImGui::Render();
+            ImDrawData *draw_data = ImGui::GetDrawData();
+            const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+            if (!is_minimized)
             {
-                ImGui::Begin("Current Volume");
-
-                // Check for audio in stream
-                if (myAudio.available() >= 0)
+                wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+                wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+                wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+                wd->ClearValue.color.float32[3] = clear_color.w;
+                if (myShape.getVertCnt() > 0)
                 {
-                    // store amplitude for volume bar
-                    storeme = std::fabs(myAudio.currVol());
-                    // grab frequency data
-                    myFreqs.freqGet(myAudio);
+                    myFrameRender(wd, draw_data, myRend);
                 }
-
-                // Setup and draw volume bar
-                ImVec2 barplace = ImGui::GetCursorScreenPos();
-                ImDrawList *barlist = ImGui::GetWindowDrawList();
-
-                // Background
-                barlist->AddRectFilled(
-                    barplace,
-                    ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
-                    IM_COL32(50, 50, 50, 255));
-
-                // Fill for volume
-                float volHeight = volBarDim.y * storeme;
-                barlist->AddRectFilled(
-                    ImVec2(barplace.x, barplace.y + volBarDim.y - volHeight),
-                    ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
-                    IM_COL32(255, 50, 50, 255));
-
-                // Reserve room for volume bar
-                ImGui::Dummy(volBarDim);
-
-                if (ImGui::Button("End Stream"))
+                else
                 {
-                    catchStream(myAudio, myFreqs, errorstr);
-                    done = true;
+                    FrameRender(wd, draw_data);
                 }
-
-                // Catch all error, for when things get nasty.
-                if (myAudio.getErr() != "")
-                {
-                    std::cerr << "Catch err: " << myAudio.getErr() << std::endl;
-                    done = true;
-                }
+                FramePresent(wd);
             }
-
-            ImGui::End();
         }
-
-        // Rendering
-        ImGui::Render();
-        ImDrawData *draw_data = ImGui::GetDrawData();
-        const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-        if (!is_minimized)
-        {
-            wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-            wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-            wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-            wd->ClearValue.color.float32[3] = clear_color.w;
-            FrameRender(wd, draw_data);
-            FramePresent(wd);
-        }
+        err = vkDeviceWaitIdle(g_Device);
     }
+    SDL_free(devices);
+    check_vk_result(err);
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+
+    CleanupVulkanWindow(&g_MainWindowData);
+    CleanupVulkan();
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     /////// End modified example code
 
-    // if (myAudio.startStream() == 0)
-    // {
-    //     SAMPLE max = 0;
-    //     for (int i = 0; i < (int)data.recordedSamples.size(); i++)
-    //     {
-    //         if (data.recordedSamples[i] > max)
-    //             max = data.recordedSamples[i];
-    //     }
-
-    //     // freq sample
-    //     freqHolder tempout = freqGet(data.recordedSamples);
-    //     std::vector<SAMPLE> freqs = tempout.frequencies, mags = tempout.magnitudes;
-    //     for (int i = FFTSZ; i + FFTSZ < data.recordedSamples.size(); i += FFTSZ)
-    //     {
-    //         tempout = freqGet(data.recordedSamples, i);
-    //         freqs.insert(freqs.end(), tempout.frequencies.begin(), tempout.frequencies.end());
-    //         mags.insert(mags.end(), tempout.magnitudes.begin(), tempout.magnitudes.end());
-    //     }
-    //     // analyze sample
-    //     max = 0;
-    //     SAMPLE maxFreq;
-    //     for (int i = 0; i < freqs.size(); i++)
-    //     {
-    //         if (mags[i] > max)
-    //         {
-    //             max = mags[i];
-    //             maxFreq = freqs[i];
-    //         }
-    //     }
-    //     std::cout << "Max freq= " << maxFreq << std::endl;
-    // }
-    // else
-    // {
-    //     std::cout << errorstr << std::endl;
-    // }
     return 0;
-}
-
-void catchStream(audio &myAudio, freqHolder myfreqs, std::string &errorstr)
-{
-    // analyze sample
-    SAMPLE max = 0;
-    SAMPLE maxFreq;
-    for (int i = 0; i < myfreqs.frequencies.size(); i++)
-    {
-        if (myfreqs.magnitudes[i] > max)
-        {
-            max = myfreqs.magnitudes[i];
-            maxFreq = myfreqs.frequencies[i];
-        }
-    }
-    std::cout << "Max freq= " << maxFreq << " at " << max << std::endl;
 }
