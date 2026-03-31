@@ -75,7 +75,7 @@ public:
     bool updateMesh(const std::vector<shapeVertex> &verts, const std::vector<int> &ind);
     /// @brief Draw with given command buffer. Does nothing if no mesh is available
     /// @param cmd
-    void recorDraw(VkCommandBuffer cmd,uint32_t width, uint32_t height);
+    void recorDraw(VkCommandBuffer cmd, uint32_t width, uint32_t height);
     /// @brief Destroy all pipelines and the current mesh
     void cleanup();
     /// @brief Fetch latest error

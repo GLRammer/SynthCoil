@@ -24,7 +24,7 @@ std::vector<char> readFile(const std::string &filename)
 VkShaderModule createShaderModule(VkDevice dev, const std::vector<char> &code)
 {
     // Check for empty vector
-    if (code.empty() || code.size()%4!=0)
+    if (code.empty() || code.size() % 4 != 0)
         return VK_NULL_HANDLE;
 
     // Create module info
@@ -107,8 +107,9 @@ bool vulkRend::createBuffer(
     VkMemoryAllocateInfo memInfo{};
     memInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     memInfo.allocationSize = memreqs.size;
-    int temp=findMemType(memreqs.memoryTypeBits, prop);
-    if(temp==-1){
+    int temp = findMemType(memreqs.memoryTypeBits, prop);
+    if (temp == -1)
+    {
         return false;
     }
     memInfo.memoryTypeIndex = (uint32_t)temp;
@@ -116,7 +117,7 @@ bool vulkRend::createBuffer(
     // Check for failure while allocating
     if (vkAllocateMemory(device, &memInfo, nullptr, &mem) != VK_SUCCESS)
     {
-        vkFreeMemory(device,mem,nullptr);
+        vkFreeMemory(device, mem, nullptr);
         errStr = "Failed memory allocation.";
         return false;
     }
@@ -124,7 +125,7 @@ bool vulkRend::createBuffer(
     // Check for failure while binding memory and buffer
     if (vkBindBufferMemory(device, buff, mem, 0))
     {
-        vkFreeMemory(device,mem,nullptr);
+        vkFreeMemory(device, mem, nullptr);
         errStr = "Failed memory buffer binding.";
         return false;
     }
@@ -189,7 +190,8 @@ bool vulkRend::uploadVert(const std::vector<shapeVertex> &verts)
     void *data = nullptr;
 
     // Map data to vertMem and pipe verts into memory
-    if(vkMapMemory(device, vertMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED){
+    if (vkMapMemory(device, vertMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED)
+    {
         errStr = "Failed to map vertecies to memory";
         return false;
     }
@@ -228,7 +230,8 @@ bool vulkRend::uploadInd(const std::vector<int> &ind)
     void *data = nullptr;
 
     // Map data to indMem and pipe verts into memory
-    if(vkMapMemory(device, indMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED){
+    if (vkMapMemory(device, indMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED)
+    {
         errStr = "Failed to map indexes to memory";
         return false;
     }
@@ -402,7 +405,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
         errStr = "Failed to create graphics pipeline.";
         vkDestroyShaderModule(device, vertShader, nullptr);
         vkDestroyShaderModule(device, fragShader, nullptr);
-        vkDestroyPipelineLayout(device,pipeLayout,nullptr);
+        vkDestroyPipelineLayout(device, pipeLayout, nullptr);
         return false;
     }
 
@@ -425,22 +428,24 @@ bool vulkRend::updateMesh(const std::vector<shapeVertex> &verts, const std::vect
     destroyMesh();
 
     // Upload inputs
-    if (!uploadVert(verts)){
+    if (!uploadVert(verts))
+    {
         destroyMesh();
         return false;
     }
 
-    if (!uploadInd(inds)){
+    if (!uploadInd(inds))
+    {
         destroyMesh();
         return false;
     }
-    
-    indexCount=inds.size();
+
+    indexCount = inds.size();
 
     return true;
 }
 
-void vulkRend::recorDraw(VkCommandBuffer cmd,uint32_t width, uint32_t height)
+void vulkRend::recorDraw(VkCommandBuffer cmd, uint32_t width, uint32_t height)
 {
     // If nothing to draw, do nothing
     if (graphicsPipe == VK_NULL_HANDLE || vertBuff == VK_NULL_HANDLE || indBuff == VK_NULL_HANDLE || indexCount == 0)

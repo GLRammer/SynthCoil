@@ -43,9 +43,10 @@ void shapeGen::generate()
 }
 
 // Use Gaussian bump to shape z axis
-float shapeGen::bumper(float x) 
+float shapeGen::bumper(float x)
 {
-    if(smooth<=0){
+    if (smooth <= 0)
+    {
         return 0.0f;
     }
     float y = 0;
@@ -64,7 +65,8 @@ float shapeGen::bumper(float x)
 // Use gaussian bump for aplha channels on vertecies
 float shapeGen::alpha(float x)
 {
-    if(smooth<=0){
+    if (smooth <= 0)
+    {
         return 0.0f;
     }
     float y = 0;
