@@ -8,6 +8,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <string>
 #include <iostream>
+#include "vulkRend.h"
 
 
 extern VkAllocationCallbacks*   g_Allocator;
@@ -34,18 +35,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report(VkDebugReportFlagsEXT flags, 
 }
 #endif // APP_USE_VULKAN_DEBUG_REPORT
 
-bool IsExtensionAvailable(const ImVector<VkExtensionProperties>& properties, const char* extension);
+extern bool IsExtensionAvailable(const ImVector<VkExtensionProperties>& properties, const char* extension);
 
-void SetupVulkan(ImVector<const char*> instance_extensions);
+extern void SetupVulkan(ImVector<const char*> instance_extensions);
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used by the demo.
 // Your real engine/app may not use them.
-void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, int width, int height);
+extern void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, int width, int height);
 
-void CleanupVulkan();
+extern void CleanupVulkan();
 
-void CleanupVulkanWindow(ImGui_ImplVulkanH_Window* wd);
+extern void CleanupVulkanWindow(ImGui_ImplVulkanH_Window* wd);
 
-void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data);
+extern void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data);
 
-void FramePresent(ImGui_ImplVulkanH_Window* wd);
+extern void myFrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data, vulkRend& myRend);
+
+extern void FramePresent(ImGui_ImplVulkanH_Window* wd);

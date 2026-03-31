@@ -1,10 +1,11 @@
 #pragma once
 #include <vector>
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-// #include <vulkan/vulkan.h>
-#include "imgv.h"
+#include <vulkan/vulkan.h>
+// #include "imgv.h"
 #include "shapeGen.h"
 
 class vulkRend
@@ -93,72 +94,3 @@ std::vector<char> readFile(const std::string &filename);
 /// @param code     Raw shader code input
 /// @return         Vulkan shader module
 VkShaderModule createShaderModule(VkDevice dev, const std::vector<char> &code);
-
-// Custom copy of FrameRender from imgv.h to utilize vulkrend
-static void myFrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data, vulkRend& myRend)
-{
-    VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
-    VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
-    VkResult err = vkAcquireNextImageKHR(g_Device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
-    if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
-        g_SwapChainRebuild = true;
-    if (err == VK_ERROR_OUT_OF_DATE_KHR)
-        return;
-    if (err != VK_SUBOPTIMAL_KHR)
-        check_vk_result(err);
-
-    ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
-    {
-        err = vkWaitForFences(g_Device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
-        check_vk_result(err);
-
-        err = vkResetFences(g_Device, 1, &fd->Fence);
-        check_vk_result(err);
-    }
-    {
-        err = vkResetCommandPool(g_Device, fd->CommandPool, 0);
-        check_vk_result(err);
-        VkCommandBufferBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        err = vkBeginCommandBuffer(fd->CommandBuffer, &info);
-        check_vk_result(err);
-    }
-    {
-        VkRenderPassBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        info.renderPass = wd->RenderPass;
-        info.framebuffer = fd->Framebuffer;
-        info.renderArea.extent.width = wd->Width;
-        info.renderArea.extent.height = wd->Height;
-        info.clearValueCount = 1;
-        info.pClearValues = &wd->ClearValue;
-        vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
-    }
-
-    //  Custom drawing
-    myRend.recorDraw(fd->CommandBuffer,wd->Width,wd->Height);
-
-    // Record dear imgui primitives into command buffer
-    ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
-
-    // Submit command buffer
-    vkCmdEndRenderPass(fd->CommandBuffer);
-    {
-        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.waitSemaphoreCount = 1;
-        info.pWaitSemaphores = &image_acquired_semaphore;
-        info.pWaitDstStageMask = &wait_stage;
-        info.commandBufferCount = 1;
-        info.pCommandBuffers = &fd->CommandBuffer;
-        info.signalSemaphoreCount = 1;
-        info.pSignalSemaphores = &render_complete_semaphore;
-
-        err = vkEndCommandBuffer(fd->CommandBuffer);
-        check_vk_result(err);
-        err = vkQueueSubmit(g_Queue, 1, &info, fd->Fence);
-        check_vk_result(err);
-    }
-}
