@@ -60,7 +60,7 @@ int audio::catchStream(char *buff, int len)
         errorString = SDL_GetError();
         return -1;
     }
-    return temp;
+    return total;
 }
 
 bool audio::clearBuff()
@@ -80,20 +80,9 @@ int audio::available()
     {
         if (avail == -1)
             errorString = SDL_GetError();
-        return -1;
+        return avail;
     }
     return avail;
-}
-
-float audio::currVol()
-{
-    if (available() >= 0)
-    {
-        float buffer = 0;
-        SDL_GetAudioStreamData(stream, &buffer, sizeof(float));
-        return buffer;
-    }
-    return 0.0;
 }
 
 std::string audio::getErr()

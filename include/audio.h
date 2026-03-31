@@ -38,6 +38,5 @@ public:
     bool clearBuff();
     std::string getErr();
     int available();
-    float currVol();
     ~audio();
 };

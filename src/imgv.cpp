@@ -439,7 +439,7 @@ bool customSetup(progState &cState)
 
     cState.w = w;
     cState.h = h;
-    return 0;
+    return true;
 }
 
 // Container for main loop
@@ -649,6 +649,9 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
             std::cerr << myAudio.getErr() << std::endl;
             done = true;
         }
+    }else if(myAudio.getErr()!= ""){
+        std::cerr << myAudio.getErr() << std::endl;
+        done = true;
     }
 
     // Draw volume bar

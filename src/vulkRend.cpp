@@ -117,7 +117,9 @@ bool vulkRend::createBuffer(
     // Check for failure while allocating
     if (vkAllocateMemory(device, &memInfo, nullptr, &mem) != VK_SUCCESS)
     {
-        vkFreeMemory(device, mem, nullptr);
+        vkDestroyBuffer(device, buff, nullptr);
+        mem = VK_NULL_HANDLE;
+        buff = VK_NULL_HANDLE;
         errStr = "Failed memory allocation.";
         return false;
     }
@@ -126,6 +128,9 @@ bool vulkRend::createBuffer(
     if (vkBindBufferMemory(device, buff, mem, 0))
     {
         vkFreeMemory(device, mem, nullptr);
+        vkDestroyBuffer(device, buff, nullptr);
+        mem = VK_NULL_HANDLE;
+        buff = VK_NULL_HANDLE;
         errStr = "Failed memory buffer binding.";
         return false;
     }
@@ -190,7 +195,7 @@ bool vulkRend::uploadVert(const std::vector<shapeVertex> &verts)
     void *data = nullptr;
 
     // Map data to vertMem and pipe verts into memory
-    if (vkMapMemory(device, vertMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED)
+    if (vkMapMemory(device, vertMem, 0, sz, 0, &data) != VK_SUCCESS)
     {
         errStr = "Failed to map vertecies to memory";
         return false;
