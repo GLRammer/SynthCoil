@@ -47,6 +47,17 @@ target_link_libraries(synthDemo PRIVATE Vulkan::Vulkan)
 find_program(GLSLC_EXECUTABLE glslc HINTS ${Vulkan_GLSLC_EXECUTABLE})
 # find_program(GLSLC_EXECUTABLE glslc)
 
+# Grab GLM for graphics
+find_package(glm QUIET CONFIG)
+if(glm_FOUND)
+    message(STATUS "Using system GLM")
+else()
+    message(STATUS "Using vendored GLM")
+    add_subdirectory("vendor/glm" "vendor/glm" EXCLUDE_FROM_ALL)
+endif()
+
+target_link_libraries(synthDemo PRIVATE glm::glm)
+
 # Grab FFTW3
 add_subdirectory("vendor/fftw3" "vendor/fftw3" EXCLUDE_FROM_ALL)
 

@@ -1,11 +1,31 @@
 #pragma once
 #include <vector>
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-// #include <vulkan/vulkan.h>
-#include "imgv.h"
+#include <vulkan/vulkan.h>
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+// #include "imgv.h"
 #include "shapeGen.h"
+
+// Uniform buffer for 3d rendering
+struct uniformBuffer
+{
+    glm::mat4 model{0.0f};
+    glm::mat4 view{0.0f};
+    glm::mat4 proj{0.0f};
+    float scale=1.0;
+    bool operator==(const uniformBuffer& other) const{
+        return(model==other.model && view==other.view && proj==other.proj);
+    }
+    bool isEmpty() const{
+        return(model==glm::mat4(0.0f) && view==glm::mat4(0.0f) && proj==glm::mat4(0.0f));
+    }
+};
 
 class vulkRend
 {
@@ -22,6 +42,16 @@ private:
     VkDeviceMemory vertMem = VK_NULL_HANDLE;
     VkBuffer indBuff = VK_NULL_HANDLE;
     VkDeviceMemory indMem = VK_NULL_HANDLE;
+    VkBuffer freqBuff = VK_NULL_HANDLE;
+    VkDeviceMemory freqMem = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descLayout = VK_NULL_HANDLE;
+    VkDescriptorPool descPool = VK_NULL_HANDLE;
+    VkDescriptorSet descSet = VK_NULL_HANDLE;
+    VkBuffer uB = VK_NULL_HANDLE;
+    VkDeviceMemory uBMem = VK_NULL_HANDLE;
+
+    float smooth=0.5;
+    int maxFreqCnt=50;
 
     /// @brief Creats a buffer and binds it to the given memory
     /// @param sz       size of buffer
@@ -37,6 +67,7 @@ private:
         VkBuffer &buff,
         VkDeviceMemory &mem);
     int findMemType(uint32_t filter, VkMemoryPropertyFlags properties);
+
     /// @brief Deletes all mesh information
     void destroyMesh();
     /// @brief Add vertecies to mesh and bind to memory
@@ -47,6 +78,9 @@ private:
     /// @param inds     Vector of indexes
     /// @return     False on failure, true on success
     bool uploadInd(const std::vector<int> &inds);
+    // Deal with freqs and uB if not existing
+    bool initFreqs();
+    bool initUB();
 
     /// @brief Number of vertecies indexed
     uint32_t indexCount = 0;
@@ -62,24 +96,44 @@ public:
         VkQueue q,
         uint32_t qFamily,
         VkRenderPass rp);
+    
     /// @brief Initialize the Vulkan pipeline
     /// @param vertPath     OS location of vertex SPV shader code
     /// @param fragPath     OS location of fragment SPV shader code
     /// @return             False on failure, true on success, use getErr() for more info.
     bool initPipe(const std::string &vertPath, const std::string &fragPath);
+
     /// @brief Update the mesh with fresh data
     /// @param verts    Vector of new vertecies
     /// @param ind      Vector of new indexes
     /// @return         False on failure, true on success, use getErr() for more info.
     bool updateMesh(const std::vector<shapeVertex> &verts, const std::vector<int> &ind);
+
+    /// @brief Update frequency buffer with fresh data
+    /// @param freqs    Vector of frequency/magnitude pairs where frequency is expressed as a ratio <=1
+    /// @return         False on failure, true on success, use getErr() for more info.
+    bool updateFreqs(const std::vector<std::pair<float,float>> &freqs);
+
+    /// @brief Update smoothing value
+    /// @param newSmooth new smoothing value. range [0-1]
+    void updateSmooth(float newSmooth);
+
+    /// @brief Bind new uniform buffer to memory
+    /// @param uBuff    Uniform buffer input
+    /// @return     False on failure, true on success, use getErr() for more info
+    bool updateUB(const uniformBuffer &uBuff);
+
     /// @brief Draw with given command buffer. Does nothing if no mesh is available
     /// @param cmd
-    void recorDraw(VkCommandBuffer cmd,uint32_t width, uint32_t height);
+    void recorDraw(VkCommandBuffer cmd, uint32_t width, uint32_t height);
+
     /// @brief Destroy all pipelines and the current mesh
     void cleanup();
+
     /// @brief Fetch latest error
     /// @return Last triggered error
     std::string getErr();
+
     ~vulkRend();
 };
 
@@ -94,71 +148,6 @@ std::vector<char> readFile(const std::string &filename);
 /// @return         Vulkan shader module
 VkShaderModule createShaderModule(VkDevice dev, const std::vector<char> &code);
 
-// Custom copy of FrameRender from imgv.h to utilize vulkrend
-static void myFrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data, vulkRend& myRend)
-{
-    VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
-    VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
-    VkResult err = vkAcquireNextImageKHR(g_Device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
-    if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
-        g_SwapChainRebuild = true;
-    if (err == VK_ERROR_OUT_OF_DATE_KHR)
-        return;
-    if (err != VK_SUBOPTIMAL_KHR)
-        check_vk_result(err);
-
-    ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
-    {
-        err = vkWaitForFences(g_Device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
-        check_vk_result(err);
-
-        err = vkResetFences(g_Device, 1, &fd->Fence);
-        check_vk_result(err);
-    }
-    {
-        err = vkResetCommandPool(g_Device, fd->CommandPool, 0);
-        check_vk_result(err);
-        VkCommandBufferBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        err = vkBeginCommandBuffer(fd->CommandBuffer, &info);
-        check_vk_result(err);
-    }
-    {
-        VkRenderPassBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        info.renderPass = wd->RenderPass;
-        info.framebuffer = fd->Framebuffer;
-        info.renderArea.extent.width = wd->Width;
-        info.renderArea.extent.height = wd->Height;
-        info.clearValueCount = 1;
-        info.pClearValues = &wd->ClearValue;
-        vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
-    }
-
-    //  Custom drawing
-    myRend.recorDraw(fd->CommandBuffer,wd->Width,wd->Height);
-
-    // Record dear imgui primitives into command buffer
-    ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
-
-    // Submit command buffer
-    vkCmdEndRenderPass(fd->CommandBuffer);
-    {
-        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.waitSemaphoreCount = 1;
-        info.pWaitSemaphores = &image_acquired_semaphore;
-        info.pWaitDstStageMask = &wait_stage;
-        info.commandBufferCount = 1;
-        info.pCommandBuffers = &fd->CommandBuffer;
-        info.signalSemaphoreCount = 1;
-        info.pSignalSemaphores = &render_complete_semaphore;
-
-        err = vkEndCommandBuffer(fd->CommandBuffer);
-        check_vk_result(err);
-        err = vkQueueSubmit(g_Queue, 1, &info, fd->Fence);
-        check_vk_result(err);
-    }
-}
+/// @brief Function to quickly generate a default uniform buffer
+/// @return Default uniform buffer instance
+uniformBuffer defaultUB();

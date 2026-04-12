@@ -24,7 +24,7 @@ std::vector<char> readFile(const std::string &filename)
 VkShaderModule createShaderModule(VkDevice dev, const std::vector<char> &code)
 {
     // Check for empty vector
-    if (code.empty() || code.size()%4!=0)
+    if (code.empty() || code.size() % 4 != 0)
         return VK_NULL_HANDLE;
 
     // Create module info
@@ -53,6 +53,10 @@ vulkRend::vulkRend(
     graphQ = q;
     qFam = qFamily;
     rendPass = rp;
+    updateUB(defaultUB());
+    std::vector<std::pair<float,float>> tempVec;
+    tempVec.push_back(std::pair<float,float>(0.0f,0.0f));
+    updateFreqs(tempVec);
 }
 
 int vulkRend::findMemType(uint32_t filter, VkMemoryPropertyFlags properties)
@@ -107,8 +111,9 @@ bool vulkRend::createBuffer(
     VkMemoryAllocateInfo memInfo{};
     memInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     memInfo.allocationSize = memreqs.size;
-    int temp=findMemType(memreqs.memoryTypeBits, prop);
-    if(temp==-1){
+    int temp = findMemType(memreqs.memoryTypeBits, prop);
+    if (temp == -1)
+    {
         return false;
     }
     memInfo.memoryTypeIndex = (uint32_t)temp;
@@ -116,7 +121,9 @@ bool vulkRend::createBuffer(
     // Check for failure while allocating
     if (vkAllocateMemory(device, &memInfo, nullptr, &mem) != VK_SUCCESS)
     {
-        vkFreeMemory(device,mem,nullptr);
+        vkDestroyBuffer(device, buff, nullptr);
+        mem = VK_NULL_HANDLE;
+        buff = VK_NULL_HANDLE;
         errStr = "Failed memory allocation.";
         return false;
     }
@@ -124,7 +131,10 @@ bool vulkRend::createBuffer(
     // Check for failure while binding memory and buffer
     if (vkBindBufferMemory(device, buff, mem, 0))
     {
-        vkFreeMemory(device,mem,nullptr);
+        vkFreeMemory(device, mem, nullptr);
+        vkDestroyBuffer(device, buff, nullptr);
+        mem = VK_NULL_HANDLE;
+        buff = VK_NULL_HANDLE;
         errStr = "Failed memory buffer binding.";
         return false;
     }
@@ -189,7 +199,8 @@ bool vulkRend::uploadVert(const std::vector<shapeVertex> &verts)
     void *data = nullptr;
 
     // Map data to vertMem and pipe verts into memory
-    if(vkMapMemory(device, vertMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED){
+    if (vkMapMemory(device, vertMem, 0, sz, 0, &data) != VK_SUCCESS)
+    {
         errStr = "Failed to map vertecies to memory";
         return false;
     }
@@ -228,7 +239,8 @@ bool vulkRend::uploadInd(const std::vector<int> &ind)
     void *data = nullptr;
 
     // Map data to indMem and pipe verts into memory
-    if(vkMapMemory(device, indMem, 0, sz, 0, &data) == VK_ERROR_MEMORY_MAP_FAILED){
+    if (vkMapMemory(device, indMem, 0, sz, 0, &data)  != VK_SUCCESS)
+    {
         errStr = "Failed to map indexes to memory";
         return false;
     }
@@ -367,9 +379,113 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
+    VkDescriptorSetLayoutBinding bindings[2];
+
+    // Uniform buffer setup for 3d
+    VkDescriptorSetLayoutBinding ubBinding{};
+    ubBinding.binding = 0;
+    ubBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubBinding.descriptorCount = 1;
+    ubBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    ubBinding.pImmutableSamplers = nullptr;
+    bindings[0]=ubBinding;
+
+    // frequency buffer setup for GPU side generation
+    VkDescriptorSetLayoutBinding freqBind{};
+    freqBind.binding = 1;
+    freqBind.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    freqBind.descriptorCount = 1;
+    freqBind.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    freqBind.pImmutableSamplers = nullptr;
+    bindings[1]=freqBind;
+
+    VkDescriptorSetLayoutCreateInfo descLayoutInfo{};
+    descLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descLayoutInfo.bindingCount = 2;
+    descLayoutInfo.pBindings = bindings;
+    
+    // Clear modules and report error on failure
+    if (vkCreateDescriptorSetLayout(device, &descLayoutInfo, nullptr, &descLayout) != VK_SUCCESS)
+    {
+        errStr = "Failed to create descriptor layout.";
+        vkDestroyShaderModule(device, vertShader, nullptr);
+        vkDestroyShaderModule(device, fragShader, nullptr);
+        return false;
+    }
+
+    // Descriptor pool setup
+    VkDescriptorPoolSize poolSize[2]{};
+    poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize[0].descriptorCount = 1;
+    poolSize[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSize[1].descriptorCount=1;
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 2;
+    poolInfo.pPoolSizes = poolSize;
+    poolInfo.maxSets = 1;
+
+    // Clear modules and report error on failure
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descPool) != VK_SUCCESS)
+    {
+        errStr = "Failed to create descriptor pool.";
+        vkDestroyShaderModule(device, vertShader, nullptr);
+        vkDestroyShaderModule(device, fragShader, nullptr);
+        return false;
+    }
+
+    // Allocate descriptor set
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &descLayout;
+
+    // Clear modules and report error on failure
+    if (vkAllocateDescriptorSets(device, &allocInfo, &descSet) != VK_SUCCESS)
+    {
+        errStr = "Failed to allocate descriptor set.";
+        vkDestroyShaderModule(device, vertShader, nullptr);
+        vkDestroyShaderModule(device, fragShader, nullptr);
+        return false;
+    }
+
+    // Write buffers into descriptor set
+    VkDescriptorBufferInfo uBInfo{};
+    uBInfo.buffer=uB;
+    uBInfo.offset=0;
+    uBInfo.range=sizeof(uniformBuffer);
+
+    VkDescriptorBufferInfo freqBInfo{};
+    freqBInfo.buffer=freqBuff;
+    freqBInfo.offset=0;
+    freqBInfo.range=sizeof(float)*(maxFreqCnt*2+2);
+
+    VkWriteDescriptorSet descWrite[2]{};
+    descWrite[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descWrite[0].dstSet = descSet;
+    descWrite[0].dstBinding = 0;
+    descWrite[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descWrite[0].descriptorCount = 1;
+    descWrite[0].pBufferInfo = &uBInfo;
+    
+    descWrite[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descWrite[1].dstSet = descSet;
+    descWrite[1].dstBinding = 1;
+    descWrite[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descWrite[1].descriptorCount = 1;
+    descWrite[1].pBufferInfo = &freqBInfo;
+    
+    
+    // void return, so no safety here
+    vkUpdateDescriptorSets(device, 2, descWrite, 0, nullptr);
+
     // Build pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &descLayout;
 
     // Clear modules and report error on failure
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipeLayout) != VK_SUCCESS)
@@ -377,6 +493,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
         errStr = "Failed to create pipeline layout.";
         vkDestroyShaderModule(device, vertShader, nullptr);
         vkDestroyShaderModule(device, fragShader, nullptr);
+        vkDestroyDescriptorSetLayout(device,descLayout,nullptr);
         return false;
     }
 
@@ -402,7 +519,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
         errStr = "Failed to create graphics pipeline.";
         vkDestroyShaderModule(device, vertShader, nullptr);
         vkDestroyShaderModule(device, fragShader, nullptr);
-        vkDestroyPipelineLayout(device,pipeLayout,nullptr);
+        vkDestroyPipelineLayout(device, pipeLayout, nullptr);
         return false;
     }
 
@@ -425,22 +542,166 @@ bool vulkRend::updateMesh(const std::vector<shapeVertex> &verts, const std::vect
     destroyMesh();
 
     // Upload inputs
-    if (!uploadVert(verts)){
+    if (!uploadVert(verts))
+    {
         destroyMesh();
         return false;
     }
 
-    if (!uploadInd(inds)){
+    if (!uploadInd(inds))
+    {
         destroyMesh();
         return false;
     }
-    
-    indexCount=inds.size();
+
+    indexCount = inds.size();
 
     return true;
 }
 
-void vulkRend::recorDraw(VkCommandBuffer cmd,uint32_t width, uint32_t height)
+bool vulkRend::updateFreqs(const std::vector<std::pair<float,float>> &freqs){
+
+    if(freqs.size()==0){
+        errStr="Empty frequency vector provided";
+        return false;
+    }
+
+    // Grab freqs size in memory
+    VkDeviceSize sz = sizeof(float) * (freqs.size() * 2 + 2);
+
+    // Call buffer creation. If it fails, pass its error along
+    if(freqBuff==VK_NULL_HANDLE || freqMem==VK_NULL_HANDLE || freqs.size()>maxFreqCnt){
+        if(freqs.size()>maxFreqCnt){
+            errStr="Provided frequency vector exceeds max";
+            return false;
+        }
+        if(!initFreqs()){
+            return false;
+        }
+    }
+
+    // temp data pointer
+    void *data = nullptr;
+
+    // Map data to freqMem and pipe freqs into memory
+    if (vkMapMemory(device, freqMem, 0, sz, 0, &data) != VK_SUCCESS)
+    {
+        errStr = "Failed to map frequencies to memory";
+        return false;
+    }
+
+    std::vector<float>tempVec;
+    tempVec.reserve(2*freqs.size()+2);
+    tempVec.push_back(smooth);
+    tempVec.push_back(freqs.size()*2+2);
+    // errStr="Buffer contents:\n";
+    // errStr+=std::to_string(smooth)+ "\n";
+    // errStr+=std::to_string(freqs.size());
+    for(int i=0; i<freqs.size(); i++){
+        // errStr+="\n"+std::to_string(freqs[i].first) + ", ";
+        tempVec.push_back(freqs[i].first);
+        // errStr+=std::to_string(freqs[i].second);
+        tempVec.push_back(freqs[i].second);
+    }
+
+    memcpy(data, tempVec.data(), sz);
+
+    // Unmap freqMem
+    vkUnmapMemory(device, freqMem);
+
+    // return false;
+    return true;
+}
+
+bool vulkRend::initFreqs(){
+    if(freqBuff!=VK_NULL_HANDLE){
+        vkDestroyBuffer(device,freqBuff,nullptr);
+        freqBuff=VK_NULL_HANDLE;
+    }
+    if(freqMem!=VK_NULL_HANDLE){
+        vkFreeMemory(device,freqMem,nullptr);
+        freqMem=VK_NULL_HANDLE;
+    }
+
+    int sz=sizeof(float)*((2*maxFreqCnt)+2);
+    if (!createBuffer(
+            sz,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            freqBuff,
+            freqMem))
+    {
+        return false;
+    }
+    return true;
+}
+
+bool vulkRend::initUB(){
+    VkDeviceSize sz = sizeof(uniformBuffer);
+    if(uBMem!=VK_NULL_HANDLE){
+        vkFreeMemory(device,uBMem,nullptr);
+        uBMem=VK_NULL_HANDLE;
+    }
+    if(uB!=VK_NULL_HANDLE){
+        vkDestroyBuffer(device,uB,nullptr);
+        uB=VK_NULL_HANDLE;
+    }
+    if (!createBuffer(
+            sz,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            uB,
+            uBMem))
+    {
+        return false;
+    }
+    return true;
+}
+
+void vulkRend::updateSmooth(float newSmooth){
+    smooth=newSmooth;
+    if(smooth>1)
+        smooth=1;
+    if(smooth<0)
+        smooth=0;
+}
+
+bool vulkRend::updateUB(const uniformBuffer &uBuff){
+    // Check for empty buffer
+    if(uBuff.isEmpty()){
+        errStr="Empty Uniform buffer provided.";
+        return false;
+    }
+
+    // Grab ind size in memory
+    VkDeviceSize sz = sizeof(uBuff);
+
+    // Call buffer creation. If it fails, pass its error along
+    if(uB==VK_NULL_HANDLE||uBMem==VK_NULL_HANDLE){
+        if(!initUB()){
+            return false;
+        }
+    }
+
+    // Temp data pointer
+    void *data = nullptr;
+
+    // Map data to uBMem and pipe buffer into memory
+    if (vkMapMemory(device, uBMem, 0, sz, 0, &data)  != VK_SUCCESS)
+    {
+        errStr = "Failed to map uniform buffer to memory";
+        return false;
+    }
+    memcpy(data, &uBuff, sz);
+
+    // Unmap indMem
+    vkUnmapMemory(device, uBMem);
+
+    return true;
+
+}
+
+void vulkRend::recorDraw(VkCommandBuffer cmd, uint32_t width, uint32_t height)
 {
     // If nothing to draw, do nothing
     if (graphicsPipe == VK_NULL_HANDLE || vertBuff == VK_NULL_HANDLE || indBuff == VK_NULL_HANDLE || indexCount == 0)
@@ -468,6 +729,7 @@ void vulkRend::recorDraw(VkCommandBuffer cmd,uint32_t width, uint32_t height)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertBuff, offsets);
     vkCmdBindIndexBuffer(cmd, indBuff, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,pipeLayout,0,1,&descSet,0,nullptr);
     vkCmdDrawIndexed(cmd, indexCount, 1, 0, 0, 0);
 }
 
@@ -489,8 +751,45 @@ void vulkRend::cleanup()
         vkDestroyPipelineLayout(device, pipeLayout, nullptr);
         pipeLayout = VK_NULL_HANDLE;
     }
+    if( descLayout != VK_NULL_HANDLE){
+        vkDestroyDescriptorSetLayout(device,descLayout,nullptr);
+        descLayout = VK_NULL_HANDLE;
+    }
+    if( freqBuff != VK_NULL_HANDLE){
+        vkDestroyBuffer(device,freqBuff,nullptr);
+        freqBuff = VK_NULL_HANDLE;
+    }
+    if( uB != VK_NULL_HANDLE){
+        vkDestroyBuffer(device,uB,nullptr);
+        uB = VK_NULL_HANDLE;
+    }
+    if( freqMem != VK_NULL_HANDLE){
+        vkFreeMemory(device,freqMem,nullptr);
+        freqMem = VK_NULL_HANDLE;
+    }
+    if( uBMem != VK_NULL_HANDLE){
+        vkFreeMemory(device,uBMem,nullptr);
+        uBMem = VK_NULL_HANDLE;
+    }
+    if( descPool != VK_NULL_HANDLE){
+        vkDestroyDescriptorPool(device,descPool,nullptr);
+        descPool = VK_NULL_HANDLE;
+    }
+    
 }
 
 std::string vulkRend::getErr() { return errStr; }
 
 vulkRend::~vulkRend() { cleanup(); }
+
+uniformBuffer defaultUB(){
+    uniformBuffer ub{};
+    ub.model=glm::mat4(1.0f);
+    ub.view=glm::lookAt(glm::vec3(15.0f,15.0f,0.0f),
+                        glm::vec3(0.0f),
+                        glm::vec3(0.0f,1.0f,0.0f));
+    ub.proj=glm::perspective(glm::radians(45.0f),1.0f,1.0f,100.0f);
+    ub.scale=5.0;
+    // ub.proj=glm::ortho(-1,1,-1,1);
+    return ub;
+}
