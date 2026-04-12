@@ -5,6 +5,7 @@
 *.o
 *.exe
 *.tgz
+*.zip
 build/
 wbuild/
 .cache/

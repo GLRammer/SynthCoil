@@ -6,9 +6,10 @@ void shapeGen::generate()
     indexes.clear();
     vertecies.reserve(segCnt * segCnt);
     indexes.reserve(segCnt * segCnt * 6);
-    float innerRad = 1, outterRad = 10;
-    float u, cu, su, v, cv, sv, x, y, z;
+    float outterRad = scale;
+    float u, cu, su, v, dv, x, y, z;
     int i, j, nextI, nextJ;
+
     for (i = 0; i < segCnt; i++)
     {
         u = (float)i / (float)segCnt * 2.0f * M_PI;
@@ -17,154 +18,41 @@ void shapeGen::generate()
         nextI = (i + 1) % segCnt;
         for (j = 0; j < segCnt; j++)
         {
-            v = (float)j / (float)segCnt * 2.0f * M_PI;
-            cv = std::cos(v);
-            sv = std::sin(v);
-            x = (outterRad + innerRad * cv) * cu;
-            y = (outterRad + innerRad * cv) * su;
-            //  z=innerRad*su;
-            z = bumper(x);
+            v = (float)j / (float)segCnt;
+            dv = v*outterRad;
+            x = dv * cu;
+            z = dv * su;
+            y=0.0f;
 
             shapeVertex vert;
             vert.pos[0] = x;
             vert.pos[1] = y;
             vert.pos[2] = z;
-            vert.alpha = alpha(x);
+            vert.alpha=0;
             vertecies.push_back(vert);
             nextJ = (j + 1) % segCnt;
-            indexes.push_back(i * segCnt + j);
-            indexes.push_back(nextI * segCnt + j);
-            indexes.push_back(nextI * segCnt + nextJ);
-            indexes.push_back(i * segCnt + j);
-            indexes.push_back(nextI * segCnt + nextJ);
-            indexes.push_back(i * segCnt + nextJ);
-        }
-    }
-}
-
-// Use Gaussian bump to shape z axis
-float shapeGen::bumper(float x)
-{
-    if (smooth <= 0)
-    {
-        return 0.0f;
-    }
-    float y = 0;
-    for (auto &&point : freqVec)
-    {
-        float dx = x - point.first;
-        float dy = point.second * std::exp(-(dx * dx) / smooth);
-        if (dy > y)
-        {
-            y = dy;
-        }
-    }
-    return y;
-}
-
-// Use gaussian bump for aplha channels on vertecies
-float shapeGen::alpha(float x)
-{
-    if (smooth <= 0)
-    {
-        return 0.0f;
-    }
-    float y = 0;
-    for (auto &&point : freqVec)
-    {
-        float dx = x - point.first;
-        float dy = 1 * std::exp(-(dx * dx) / smooth);
-        if (dy > y)
-        {
-            y = dy;
-        }
-    }
-    return y;
-}
-
-// Barebones initializing
-shapeGen::shapeGen(int count, int range)
-{
-    freqCount = count;
-    errString = "";
-    freqRange = range;
-    segCnt = 360;
-    smooth = .5;
-    vertecies.clear();
-    indexes.clear();
-}
-
-// Initialize and immediately generate a new shape
-shapeGen::shapeGen(std::vector<float> freqs, std::vector<float> mags, int count, int range)
-{
-    freqCount = count;
-    errString = "";
-    freqRange = range;
-    segCnt = 360;
-    smooth = .5;
-    generate(freqs, mags);
-}
-
-// Public generate call for the user to input fresh values
-bool shapeGen::generate(std::vector<float> freqs, std::vector<float> mags)
-{
-    int i;
-
-    // Check input size
-    if (freqs.size() < freqCount)
-    {
-        errString = "Vectors are too small!";
-        return false;
-    }
-
-    // Check if inputs match
-    if (freqs.size() != mags.size())
-    {
-        errString = "Vector sizes don't match!";
-        return false;
-    }
-
-    // Temporary storage for loudest frequencies indexes
-    std::vector<int> tempind;
-    tempind.reserve(freqCount);
-
-    // Find <freqCount> loudest frequencies and store their indexes
-    for (i = 0; i < freqs.size(); i++)
-    {
-        if (tempind.size() < freqCount)
-        {
-            tempind.push_back(i);
-            continue;
-        }
-        for (int j = 0; j < freqCount; j++)
-        {
-            if (mags[i] > mags[tempind[j]])
-            {
-                tempind[j] = i;
-                continue;
+            if (nextJ!=0){
+                indexes.push_back(i * segCnt + j);
+                indexes.push_back(nextI * segCnt + j);
+                indexes.push_back(nextI * segCnt + nextJ);
+                indexes.push_back(i * segCnt + j);
+                indexes.push_back(nextI * segCnt + nextJ);
+                indexes.push_back(i * segCnt + nextJ);
             }
         }
     }
-
-    // Clean freqVec for fresh data
-    freqVec.clear();
-    freqVec.reserve(freqCount);
-
-    // Push fresh data to freqVec
-    for (i = 0; i < freqCount; i++)
-    {
-        freqVec.push_back(std::pair<float, float>(9 * (freqs[tempind[i]] / freqRange), 9 * mags[tempind[i]]));
-    }
-
-    // Call internal generate() to build shape
-    generate();
-    return true;
 }
 
-void shapeGen::setFreqCnt(int count)
+// Barebones initializing
+shapeGen::shapeGen()
 {
-    freqCount = count;
+    errString = "";
+    segCnt = 360;
+    vertecies.clear();
+    indexes.clear();
+    generate();
 }
+
 
 void shapeGen::setSegCnt(int count)
 {
@@ -176,17 +64,6 @@ void shapeGen::setSegCnt(int count)
     {
         segCnt = count;
     }
-}
-
-bool shapeGen::setSmooth(float newsmooth)
-{
-    if (newsmooth > 1 || newsmooth < 0)
-    {
-        errString = "New smooth value out of range";
-        return false;
-    }
-    smooth = newsmooth;
-    return true;
 }
 
 bool shapeGen::getLatestShape(std::vector<shapeVertex> &vertBuff, std::vector<int> &indBuff)
@@ -203,7 +80,15 @@ bool shapeGen::getLatestShape(std::vector<shapeVertex> &vertBuff, std::vector<in
 
 int shapeGen::getVertCnt() { return vertecies.size(); }
 
-float shapeGen::getSmooth() { return smooth; }
+float shapeGen::getScale(){return scale;}
+
+void shapeGen::setScale(float newS){
+    if(newS>1){
+        scale=newS;
+    }else{
+        scale=1;
+    }
+}
 
 std::string shapeGen::getErr()
 {

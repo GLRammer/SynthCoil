@@ -39,6 +39,8 @@ struct progState
     SDL_AudioDeviceID *devices;
     freqHolder myFreqs;
     int devCnt;
+    // Debug Flag
+    bool debug=false;
 };
 
 extern void check_vk_result(VkResult err);

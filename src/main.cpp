@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
     }
     // Initialize state object
     progState cState{};
+    // cState.debug=true;
 
     // fetch audio devices
     if (!audioDevFetch(cState))

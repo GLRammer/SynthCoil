@@ -471,6 +471,15 @@ bool runLoop(progState &cState)
         return false;
     }
 
+    // Generate initial shape 
+    std::vector<shapeVertex>verts;
+    std::vector<int>inds;
+    myShape.getLatestShape(verts,inds);
+    if(!myRend.updateMesh(verts,inds)){
+        std::cerr << "Rend Mesh Error:" << myRend.getErr();
+        return false;
+    }
+
     // Run rendering loop
     while (!done)
     {
@@ -507,7 +516,7 @@ bool runLoop(progState &cState)
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
         if (!is_minimized)
         {
-            if (myShape.getVertCnt() > 0)
+            if (devSel)
             {
                 myFrameRender(cState.wd, draw_data, myRend);
             }
@@ -552,17 +561,30 @@ int eventPoll(SDL_Event &event, progState &cState)
 
 bool finalDisp()
 {
+    bool done=false;
     ImGui::Begin("Lookie");
     if (ImGui::Button("Seen"))
     {
-        return true;
+        done= true;
     }
     ImGui::End();
-    return false;
+    return done;
 }
 
 bool devSelect(progState &cState, bool &devSel, int &devselected)
 {
+    // If debug, skip me
+    if(cState.debug){
+        if (cState.myAudio.selectDev(cState.devices[devselected]))
+        {
+            devSel = true;
+            if (!cState.myAudio.startStream())
+            {
+                std::cerr << cState.myAudio.getErr() << std::endl;
+                return true;
+            }
+        }
+    }
 
     bool done = false;
 
@@ -627,28 +649,20 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
         myFreqs.freqGet(myAudio);
         // store magnitude for volume bar
         lastMag = std::fabs(myFreqs.getPeak().first);
-        // update shape and renderer
-        std::vector<shapeVertex> verts;
-        std::vector<int> ind;
-        if (myShape.generate(myFreqs.frequencies, myFreqs.magnitudes) && myShape.getLatestShape(verts, ind))
-        {
-            if (!myRend.updateMesh(verts, ind))
-            {
-                std::cerr << myRend.getErr() << std::endl;
-                done = true;
-            }
+
+        // Pass peak frequencies to renderer
+        if(!myRend.updateFreqs(myFreqs.getTop())){
+            std::cerr<<myRend.getErr()<<std::endl;
+            done=true;
         }
-        else
-        {
-            std::cerr << myShape.getErr() << std::endl;
-            done = true;
-        }
+
+        // TODO make this optional
         // Clear audio buffer for live audio
-        if (!myAudio.clearBuff())
-        {
-            std::cerr << myAudio.getErr() << std::endl;
-            done = true;
-        }
+        // if (!myAudio.clearBuff())
+        // {
+        //     std::cerr << myAudio.getErr() << std::endl;
+        //     done = true;
+        // }
     }else if(myAudio.getErr()!= ""){
         std::cerr << myAudio.getErr() << std::endl;
         done = true;
