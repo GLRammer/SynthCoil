@@ -2,9 +2,11 @@
 
 layout(location = 0) in float fragAlpha;
 layout(location = 0) out vec4 outColor;
+layout(binding = 2) uniform Chroma{
+    vec3 c;
+} inColor;
 
 void main()
 {
-    // Base color of white
-    outColor = vec4(1.0, 1.0, 1.0, fragAlpha);
+    outColor = vec4(inColor.c, fragAlpha);
 }

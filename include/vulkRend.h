@@ -53,6 +53,16 @@ private:
     float smooth=0.5;
     int maxFreqCnt=50;
 
+    // Color stuffs
+    float chroma[3]={1.0,1.0,1.0};
+    float targChroma[3]={1.0,1.0,1.0};
+    bool transition=false;
+    float chromaMath(float a, float b);
+    bool chromaPass();
+    bool initChroma();
+    VkBuffer chromaBuff = VK_NULL_HANDLE;
+    VkDeviceMemory chromaMem=VK_NULL_HANDLE;
+
     /// @brief Creats a buffer and binds it to the given memory
     /// @param sz       size of buffer
     /// @param use      Vulkan usage flags
@@ -122,6 +132,9 @@ public:
     /// @param uBuff    Uniform buffer input
     /// @return     False on failure, true on success, use getErr() for more info
     bool updateUB(const uniformBuffer &uBuff);
+
+    bool updateColor(float r=1.0, float g=1.0, float b=1.0);
+    bool updateColor(float rgb[3]);
 
     /// @brief Draw with given command buffer. Does nothing if no mesh is available
     /// @param cmd

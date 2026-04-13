@@ -57,6 +57,74 @@ vulkRend::vulkRend(
     std::vector<std::pair<float,float>> tempVec;
     tempVec.push_back(std::pair<float,float>(0.0f,0.0f));
     updateFreqs(tempVec);
+    initChroma();
+}
+
+bool vulkRend::chromaPass(){
+    transition=false;
+    for (int i=0;i<3;i++){
+        if(chroma[i]!=targChroma[i]){
+            transition=true;
+            chroma[i]=chromaMath(chroma[i], targChroma[i]);
+        }
+    }
+
+    // grab size in memory
+    VkDeviceSize sz=sizeof(float)*3;
+    
+    
+    // temp memory mapping
+    void* data=nullptr;
+    if(vkMapMemory(device,chromaMem,0,sz,0,&data)!=VK_SUCCESS){
+        errStr="Failed to map color to memory";
+        return false;
+    }
+
+    // copy data over
+    memcpy(data,chroma,sz);
+
+    // unmap and exit
+    vkUnmapMemory(device,chromaMem);
+    return true;
+}
+
+float vulkRend::chromaMath(float a, float b){
+    float diff=fabs(a-b);
+    float max=std::max(a,b);
+    if(diff/max<0.1){
+        return b;
+    }
+    return (a+b)/2.0;
+}
+
+bool vulkRend::initChroma(){
+    // grab buffer size
+    VkDeviceSize sz = sizeof(float)*3;
+
+    if(chromaBuff!=VK_NULL_HANDLE){
+        chromaBuff=VK_NULL_HANDLE;
+    }
+    if(chromaMem=VK_NULL_HANDLE){
+        chromaMem=VK_NULL_HANDLE;
+    }
+
+    if(!createBuffer(sz,VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,chromaBuff,chromaMem)){
+        return false;
+    }
+
+    // temp memory mapping
+    void* data=nullptr;
+    if(vkMapMemory(device,chromaMem,0,sz,0,&data)!=VK_SUCCESS){
+        errStr="Failed to map color to memory";
+        return false;
+    }
+
+    // copy data over
+    memcpy(data,chroma,sz);
+
+    // unmap and exit
+    vkUnmapMemory(device,chromaMem);
+    return true;
 }
 
 int vulkRend::findMemType(uint32_t filter, VkMemoryPropertyFlags properties)
@@ -379,7 +447,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    VkDescriptorSetLayoutBinding bindings[2];
+    VkDescriptorSetLayoutBinding bindings[3];
 
     // Uniform buffer setup for 3d
     VkDescriptorSetLayoutBinding ubBinding{};
@@ -399,9 +467,18 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     freqBind.pImmutableSamplers = nullptr;
     bindings[1]=freqBind;
 
+    
+    VkDescriptorSetLayoutBinding chromaBind{};
+    chromaBind.binding = 2;
+    chromaBind.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    chromaBind.descriptorCount = 1;
+    chromaBind.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    chromaBind.pImmutableSamplers = nullptr;
+    bindings[2]=ubBinding;
+
     VkDescriptorSetLayoutCreateInfo descLayoutInfo{};
     descLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descLayoutInfo.bindingCount = 2;
+    descLayoutInfo.bindingCount = 3;
     descLayoutInfo.pBindings = bindings;
     
     // Clear modules and report error on failure
@@ -416,7 +493,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     // Descriptor pool setup
     VkDescriptorPoolSize poolSize[2]{};
     poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize[0].descriptorCount = 1;
+    poolSize[0].descriptorCount = 2;
     poolSize[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSize[1].descriptorCount=1;
 
@@ -456,6 +533,14 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     uBInfo.buffer=uB;
     uBInfo.offset=0;
     uBInfo.range=sizeof(uniformBuffer);
+    
+    VkDescriptorBufferInfo chromaInfo{};
+    chromaInfo.buffer=chromaBuff;
+    chromaInfo.offset=0;
+    chromaInfo.range=sizeof(float)*3;
+    VkDescriptorBufferInfo uniDesc[2];
+    uniDesc[0]=uBInfo;
+    uniDesc[1]=chromaInfo;
 
     VkDescriptorBufferInfo freqBInfo{};
     freqBInfo.buffer=freqBuff;
@@ -467,8 +552,8 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     descWrite[0].dstSet = descSet;
     descWrite[0].dstBinding = 0;
     descWrite[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descWrite[0].descriptorCount = 1;
-    descWrite[0].pBufferInfo = &uBInfo;
+    descWrite[0].descriptorCount = 2;
+    descWrite[0].pBufferInfo = uniDesc;
     
     descWrite[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descWrite[1].dstSet = descSet;
@@ -698,7 +783,28 @@ bool vulkRend::updateUB(const uniformBuffer &uBuff){
     vkUnmapMemory(device, uBMem);
 
     return true;
+}
 
+bool vulkRend::updateColor(float r, float g, float b){
+    float temp[3]={r,g,b};
+    return updateColor(temp);
+}
+
+bool vulkRend::updateColor(float rgb[3]){
+    // Handle empty buffer
+    if(chromaBuff==VK_NULL_HANDLE | chromaMem==VK_NULL_HANDLE){
+        if(!initChroma()){
+            return false;
+        }
+    }
+    
+    // grab buffer size
+    VkDeviceSize sz = sizeof(float)*3;
+
+    // copy to storage and call chromaPass
+    memcpy(targChroma,rgb,sz);
+    chromaPass();
+    return true;
 }
 
 void vulkRend::recorDraw(VkCommandBuffer cmd, uint32_t width, uint32_t height)
@@ -706,6 +812,11 @@ void vulkRend::recorDraw(VkCommandBuffer cmd, uint32_t width, uint32_t height)
     // If nothing to draw, do nothing
     if (graphicsPipe == VK_NULL_HANDLE || vertBuff == VK_NULL_HANDLE || indBuff == VK_NULL_HANDLE || indexCount == 0)
         return;
+    
+    // Check for chroma transition
+    if(transition){
+        chromaPass();
+    }
 
     // Setup viewports for custom renders
     VkViewport port{};
@@ -775,7 +886,14 @@ void vulkRend::cleanup()
         vkDestroyDescriptorPool(device,descPool,nullptr);
         descPool = VK_NULL_HANDLE;
     }
-    
+    if(chromaBuff!=VK_NULL_HANDLE){
+        vkDestroyBuffer(device,chromaBuff,nullptr);
+        chromaBuff=VK_NULL_HANDLE;
+    }
+    if(chromaMem!=VK_NULL_HANDLE){
+        vkFreeMemory(device,chromaMem,nullptr);
+        chromaMem=VK_NULL_HANDLE;
+    }
 }
 
 std::string vulkRend::getErr() { return errStr; }
