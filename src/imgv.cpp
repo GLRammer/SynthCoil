@@ -686,6 +686,10 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
         done = true;
     }
 
+    // Smoothing value slider
+    ImGui::SliderFloat("Smoothing",&cState.smooth,0.0,1.0);
+    myRend.updateSmooth(cState.smooth);
+
     if (ImGui::Button("End Stream"))
     {
         displayShape = true;

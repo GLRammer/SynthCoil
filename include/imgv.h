@@ -43,6 +43,8 @@ struct progState
     ImVec4 bg = {0.1, 0.2, 0.3, 1.0};
     // Shape color
     float scolor[3] = {1.0, 1.0, 1.0};
+    // Smoothing value
+    float smooth={0.5};
     // Debug Flag
     bool debug = false;
 };
