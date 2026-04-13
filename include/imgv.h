@@ -39,8 +39,12 @@ struct progState
     SDL_AudioDeviceID *devices;
     freqHolder myFreqs;
     int devCnt;
+    // Background color
+    ImVec4 bg = {0.1, 0.2, 0.3, 1.0};
+    // Shape color
+    float scolor[3] = {1.0, 1.0, 1.0};
     // Debug Flag
-    bool debug=false;
+    bool debug = false;
 };
 
 extern void check_vk_result(VkResult err);
@@ -100,3 +104,5 @@ void volBar(ImVec2 volBarDim, float lastMag);
 
 // Fetch audio device info for selection
 bool audioDevFetch(progState &cState);
+
+void bgPush(progState &cState);

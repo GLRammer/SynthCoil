@@ -18,12 +18,14 @@ struct uniformBuffer
     glm::mat4 model{0.0f};
     glm::mat4 view{0.0f};
     glm::mat4 proj{0.0f};
-    float scale=1.0;
-    bool operator==(const uniformBuffer& other) const{
-        return(model==other.model && view==other.view && proj==other.proj);
+    float scale = 1.0;
+    bool operator==(const uniformBuffer &other) const
+    {
+        return (model == other.model && view == other.view && proj == other.proj, scale == other.scale);
     }
-    bool isEmpty() const{
-        return(model==glm::mat4(0.0f) && view==glm::mat4(0.0f) && proj==glm::mat4(0.0f));
+    bool isEmpty() const
+    {
+        return (model == glm::mat4(0.0f) && view == glm::mat4(0.0f) && proj == glm::mat4(0.0f));
     }
 };
 
@@ -50,18 +52,18 @@ private:
     VkBuffer uB = VK_NULL_HANDLE;
     VkDeviceMemory uBMem = VK_NULL_HANDLE;
 
-    float smooth=0.5;
-    int maxFreqCnt=50;
+    float smooth = 0.5;
+    int maxFreqCnt = 50;
 
     // Color stuffs
-    float chroma[3]={1.0,1.0,1.0};
-    float targChroma[3]={1.0,1.0,1.0};
-    bool transition=false;
+    float chroma[3] = {1.0, 1.0, 1.0};
+    float targChroma[3] = {1.0, 1.0, 1.0};
+    bool transition = true;
     float chromaMath(float a, float b);
     bool chromaPass();
     bool initChroma();
     VkBuffer chromaBuff = VK_NULL_HANDLE;
-    VkDeviceMemory chromaMem=VK_NULL_HANDLE;
+    VkDeviceMemory chromaMem = VK_NULL_HANDLE;
 
     /// @brief Creats a buffer and binds it to the given memory
     /// @param sz       size of buffer
@@ -106,7 +108,7 @@ public:
         VkQueue q,
         uint32_t qFamily,
         VkRenderPass rp);
-    
+
     /// @brief Initialize the Vulkan pipeline
     /// @param vertPath     OS location of vertex SPV shader code
     /// @param fragPath     OS location of fragment SPV shader code
@@ -122,7 +124,7 @@ public:
     /// @brief Update frequency buffer with fresh data
     /// @param freqs    Vector of frequency/magnitude pairs where frequency is expressed as a ratio <=1
     /// @return         False on failure, true on success, use getErr() for more info.
-    bool updateFreqs(const std::vector<std::pair<float,float>> &freqs);
+    bool updateFreqs(const std::vector<std::pair<float, float>> &freqs);
 
     /// @brief Update smoothing value
     /// @param newSmooth new smoothing value. range [0-1]
@@ -133,7 +135,8 @@ public:
     /// @return     False on failure, true on success, use getErr() for more info
     bool updateUB(const uniformBuffer &uBuff);
 
-    bool updateColor(float r=1.0, float g=1.0, float b=1.0);
+    // Update target color for the shape. Returns false on failure.
+    bool updateColor(float r = 1.0, float g = 1.0, float b = 1.0);
     bool updateColor(float rgb[3]);
 
     /// @brief Draw with given command buffer. Does nothing if no mesh is available

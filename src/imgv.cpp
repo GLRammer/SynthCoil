@@ -471,11 +471,12 @@ bool runLoop(progState &cState)
         return false;
     }
 
-    // Generate initial shape 
-    std::vector<shapeVertex>verts;
-    std::vector<int>inds;
-    myShape.getLatestShape(verts,inds);
-    if(!myRend.updateMesh(verts,inds)){
+    // Generate initial shape
+    std::vector<shapeVertex> verts;
+    std::vector<int> inds;
+    myShape.getLatestShape(verts, inds);
+    if (!myRend.updateMesh(verts, inds))
+    {
         std::cerr << "Rend Mesh Error:" << myRend.getErr();
         return false;
     }
@@ -516,6 +517,7 @@ bool runLoop(progState &cState)
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
         if (!is_minimized)
         {
+            bgPush(cState);
             if (devSel)
             {
                 myFrameRender(cState.wd, draw_data, myRend);
@@ -561,11 +563,11 @@ int eventPoll(SDL_Event &event, progState &cState)
 
 bool finalDisp()
 {
-    bool done=false;
+    bool done = false;
     ImGui::Begin("Lookie");
     if (ImGui::Button("Seen"))
     {
-        done= true;
+        done = true;
     }
     ImGui::End();
     return done;
@@ -574,7 +576,8 @@ bool finalDisp()
 bool devSelect(progState &cState, bool &devSel, int &devselected)
 {
     // If debug, skip me
-    if(cState.debug){
+    if (cState.debug)
+    {
         if (cState.myAudio.selectDev(cState.devices[devselected]))
         {
             devSel = true;
@@ -651,9 +654,10 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
         lastMag = std::fabs(myFreqs.getPeak().first);
 
         // Pass peak frequencies to renderer
-        if(!myRend.updateFreqs(myFreqs.getTop())){
-            std::cerr<<myRend.getErr()<<std::endl;
-            done=true;
+        if (!myRend.updateFreqs(myFreqs.getTop()))
+        {
+            std::cerr << myRend.getErr() << std::endl;
+            done = true;
         }
 
         // TODO make this optional
@@ -663,13 +667,24 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
         //     std::cerr << myAudio.getErr() << std::endl;
         //     done = true;
         // }
-    }else if(myAudio.getErr()!= ""){
+    }
+    else if (myAudio.getErr() != "")
+    {
         std::cerr << myAudio.getErr() << std::endl;
         done = true;
     }
 
     // Draw volume bar
     volBar(volBarDim, lastMag);
+
+    // Color customizers
+    ImGui::ColorEdit3("Background color", (float *)&cState.bg);
+    ImGui::ColorEdit3("Shape color", cState.scolor);
+    if (!myRend.updateColor(cState.scolor))
+    {
+        std::cerr << myRend.getErr() << std::endl;
+        done = true;
+    }
 
     if (ImGui::Button("End Stream"))
     {
@@ -716,4 +731,12 @@ bool audioDevFetch(progState &cState)
         return false;
     }
     return true;
+}
+
+void bgPush(progState &cState)
+{
+    cState.wd->ClearValue.color.float32[0] = cState.bg.x * cState.bg.w;
+    cState.wd->ClearValue.color.float32[1] = cState.bg.y * cState.bg.w;
+    cState.wd->ClearValue.color.float32[2] = cState.bg.z * cState.bg.w;
+    cState.wd->ClearValue.color.float32[3] = cState.bg.w;
 }

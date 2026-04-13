@@ -75,7 +75,7 @@ foreach(SHADER ${SHADERS})
     add_custom_command(
         OUTPUT ${SPIRV}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders
-        COMMAND ${GLSLC_EXECUTABLE} ${SHADER} -o ${SPIRV}
+        COMMAND ${GLSLC_EXECUTABLE} -g -O0 ${SHADER} -o ${SPIRV} --target-env=vulkan1.2
         DEPENDS ${SHADER}
         COMMENT "Compiling shader ${FILE_NAME}"
     )
