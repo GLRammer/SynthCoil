@@ -20,6 +20,7 @@ private:
     std::pair<float, float> peak;
     std::vector<std::pair<float, float>>topN;
     int topNum=5;
+    float gain;
 
 public:
     freqHolder();

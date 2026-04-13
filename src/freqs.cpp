@@ -13,6 +13,8 @@ freqHolder::freqHolder()
     plan = fftwf_plan_dft_r2c_1d(FFTSZ, freqbuff, out, FFTW_MEASURE);
     frequencies.clear();
     magnitudes.clear();
+
+    gain=0.0001;
 }
 
 freqHolder::~freqHolder()
@@ -38,6 +40,7 @@ void freqHolder::freqGet(audio &in)
     topN=std::vector<std::pair<float,float>>(topNum,std::pair<float,float>(0.0,0.0));
     peak = {0.0f, 0.0f};
 
+    float max=0.0;
     // Calculation of magnitudes
     for (int i = 0; i < outSz; i++)
     {
@@ -47,6 +50,10 @@ void freqHolder::freqGet(audio &in)
         float im = out[i][1];
         // actual calculations
         float mag = std::hypot(re, im) / (float)outSz;
+        if(mag>max){
+            max=mag;
+        }
+        mag/=gain;
         magnitudes.push_back(mag);
         for(int j=0;j<topNum;j++){
             if(mag>topN[j].second){
@@ -61,7 +68,13 @@ void freqHolder::freqGet(audio &in)
             peak.second = i;
         }
     }
-
+    if(gain>=max){
+        float dg=gain-max;
+        dg/=2;
+        gain-=dg;
+    }else{
+        gain=max;
+    }
     //  Clear frequency vector
     frequencies.clear();
     frequencies.reserve(outSz);
