@@ -646,7 +646,7 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
     ImGui::Begin("Current Volume");
 
     // Check for audio in stream
-    if (myAudio.available() >= 0)
+    if (myAudio.available() > 0)
     {
         // grab frequency data
         myFreqs.freqGet(myAudio);
@@ -688,8 +688,6 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
 
     if (ImGui::Button("End Stream"))
     {
-        // Print daig data
-        std::cout << "Max freq= " << myFreqs.getPeak().second << " at " << myFreqs.getPeak().first << std::endl;
         displayShape = true;
     }
 
