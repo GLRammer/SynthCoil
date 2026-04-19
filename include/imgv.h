@@ -8,6 +8,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <string>
 #include <iostream>
+#include <filesystem>
 #include "vulkRend.h"
 #include "audio.h"
 #include "freqs.h"

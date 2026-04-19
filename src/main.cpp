@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     // Initialize state object
+    {
     progState cState{};
     // cState.debug=true;
 
@@ -46,6 +47,7 @@ int main(int argc, char *argv[])
     CleanupVulkan();
 
     SDL_DestroyWindow(cState.window);
+}
     SDL_Quit();
 
     return 0;

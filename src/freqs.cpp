@@ -72,7 +72,7 @@ void freqHolder::freqGet(audio &in)
     }
 
     // Calculation of magnitudes
-    for (int i = minInd; i < maxInd; i++)
+    for (int i = minInd; i <= maxInd; i++)
     {
         // actual calculations
         float mag = std::abs(avgOut[i]) / FFTSZ;
@@ -106,7 +106,7 @@ void freqHolder::freqGet(audio &in)
     frequencies.reserve(OUTSZ);
 
     // Calculation of frequencies
-    for (int i = minInd; i < maxInd; i++)
+    for (int i = minInd; i <= maxInd; i++)
     {
         float freq = (float)i * (float)SAMPLE_RATE / (OUTSZ*2.0);
         frequencies.push_back(freq);
@@ -114,7 +114,7 @@ void freqHolder::freqGet(audio &in)
             peak.front().second = freq;
     }
     for(int i=0;i<topNum;i++){
-        topN[i].first=melConv(frequencies[topN[i].first],frequencies[minInd],frequencies[maxInd]);
+        topN[i].first=melConv(frequencies[topN[i].first],frequencies[minInd],frequencies[maxInd-1]);
         // topN[i].first=frequencies[topN[i].first]/OUTSZ;
     }
 }

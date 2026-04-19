@@ -75,7 +75,7 @@ foreach(SHADER ${SHADERS})
     add_custom_command(
         OUTPUT ${SPIRV}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders
-        COMMAND ${GLSLC_EXECUTABLE} -g -O0 ${SHADER} -o ${SPIRV} --target-env=vulkan1.2
+        COMMAND ${GLSLC_EXECUTABLE} ${SHADER} -o ${SPIRV}
         DEPENDS ${SHADER}
         COMMENT "Compiling shader ${FILE_NAME}"
     )
@@ -95,11 +95,6 @@ if (WIN32)
     add_custom_command( TARGET synthDemo POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE_DIR:synthDemo>/vendor/SDL/SDL3.dll"
-        "$<TARGET_FILE_DIR:synthDemo>"
-    )
-    add_custom_command( TARGET synthDemo POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/vulkan-1.dll"
         "$<TARGET_FILE_DIR:synthDemo>"
     )
 endif()

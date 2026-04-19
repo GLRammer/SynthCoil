@@ -464,8 +464,9 @@ bool runLoop(progState &cState)
     int devselected = 0;
 
     // Initialize custom vulkan renderer
+    std::filesystem::path vert("shaders/coil.vert.spv"),frag("shaders/coil.frag.spv");
     vulkRend myRend(g_PhysicalDevice, g_Device, g_Queue, g_QueueFamily, cState.wd->RenderPass);
-    if (!myRend.initPipe("shaders/coil.vert.spv", "shaders/coil.frag.spv"))
+    if (!myRend.initPipe(vert.string(), frag.string()))
     {
         std::cerr << myRend.getErr() << std::endl;
         return false;
