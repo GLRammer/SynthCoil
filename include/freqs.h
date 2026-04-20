@@ -31,7 +31,6 @@ private:
     float min=20,max=HEARINGMAX;
     int topNum=5;
     float gain=0.9;
-    bool autoGain=true;
     int tweenFrames=5;
 
 public:
@@ -41,7 +40,11 @@ public:
     const std::vector<float> getMagnitudes();
     const std::pair<float, float> getPeak();
     const std::vector<std::pair<float, float>> getTop();
+    const float getGain();
+    bool autoGain=true;
+    const int getFrames();
     void setMinMax(const float newmin, const float newmax);
+    void getMinMax(float&inmin,float&inmax);
     void setGain(const float newgain);
     void setFrames(const int newframes);
     void setTop(const int n);

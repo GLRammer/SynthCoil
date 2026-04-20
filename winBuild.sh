@@ -2,13 +2,13 @@
 
 # rebuild config
 if [ "$1" == "config" ]; then
-    cmake -S . -B wbuild -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake  -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/home/zero/SynthCoil/windows-toolchain.cmake
+    cmake -S . -B wbuild -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake  -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/home/zero/SynthCoil/windows-toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
 fi
 
 # delete current build and rebuild config
 if [ "$1" == "scratch" ]; then
     rm -rf wbuild
-    cmake -S . -B wbuild -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake  -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/home/zero/SynthCoil/windows-toolchain.cmake
+    cmake -S . -B wbuild -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake  -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/home/zero/SynthCoil/windows-toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
 fi
 
 # build project with as many parallel processes as you have processors

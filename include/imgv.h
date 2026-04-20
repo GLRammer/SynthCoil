@@ -94,7 +94,7 @@ bool runLoop(progState &cState);
 int eventPoll(SDL_Event &event, progState &cState);
 
 // Display final shape
-bool finalDisp();
+bool finalDisp(vulkRend &myRend);
 
 // Display device selection prompt
 bool devSelect(progState &cState, bool &devSel, int &devselected);
@@ -109,3 +109,6 @@ void volBar(ImVec2 volBarDim, float lastMag);
 bool audioDevFetch(progState &cState);
 
 void bgPush(progState &cState);
+
+// Rotate shape from mouse drag
+void angleUpdate(vulkRend &myRend);

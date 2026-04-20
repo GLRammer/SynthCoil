@@ -500,7 +500,7 @@ bool runLoop(progState &cState)
         {
             if (displayshape)
             {
-                done = finalDisp();
+                done = finalDisp(myRend);
             }
             else if (!devSel)
             {
@@ -562,10 +562,14 @@ int eventPoll(SDL_Event &event, progState &cState)
     return 0;
 }
 
-bool finalDisp()
+bool finalDisp(vulkRend &myRend)
 {
     bool done = false;
     ImGui::Begin("Lookie");
+    
+    // Handle rotations
+    angleUpdate(myRend);
+
     if (ImGui::Button("Seen"))
     {
         done = true;
@@ -644,7 +648,7 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
     audio &myAudio = cState.myAudio;
     freqHolder &myFreqs = cState.myFreqs;
 
-    ImGui::Begin("Current Volume");
+    ImGui::Begin("Control Panel");
 
     // Check for audio in stream
     if (myAudio.available() > 0)
@@ -691,6 +695,34 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
     ImGui::SliderFloat("Smoothing",&cState.smooth,0.0,1.0);
     myRend.updateSmooth(cState.smooth);
 
+    // Min/Max Hz slider
+    float tempMin,tempMax;
+    myFreqs.getMinMax(tempMin,tempMax);
+    ImGui::DragFloatRange2("Hz Range",&tempMin,&tempMax,10.0,20,HEARINGMAX,"Min: %f","Max: %f");
+    myFreqs.setMinMax(tempMin,tempMax);
+
+    // Gain slider
+    float tempGain=(1.0-myFreqs.getGain())*10.0;
+    ImGui::SliderFloat("Gain",&tempGain,0.0,10.0);
+    if(ImGui::Button("Automatic Gain")){
+        if(myFreqs.autoGain){
+            myFreqs.setGain(1.0-(tempGain/10));
+        }else{
+            myFreqs.setGain(-1.0f);
+        }
+    }
+    if(!myFreqs.autoGain){
+        myFreqs.setGain(1.0-(tempGain/10));
+    }
+
+    // Framecount editor
+    int tempFC=myFreqs.getFrames();
+    ImGui::SliderInt("Buffer frames",&tempFC,0,20);
+    myFreqs.setFrames(tempFC);
+
+    // Handle rotations
+    angleUpdate(myRend);
+
     if (ImGui::Button("End Stream"))
     {
         displayShape = true;
@@ -719,7 +751,7 @@ void volBar(ImVec2 volBarDim, float lastMag)
     barlist->AddRectFilled(
         ImVec2(barplace.x, barplace.y + volBarDim.y - volHeight),
         ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
-        IM_COL32(255, 50, 50, 255));
+        IM_COL32(50, 255, 50, 255));
 
     // Reserve room for volume bar
     ImGui::Dummy(volBarDim);
@@ -742,4 +774,19 @@ void bgPush(progState &cState)
     cState.wd->ClearValue.color.float32[1] = cState.bg.y * cState.bg.w;
     cState.wd->ClearValue.color.float32[2] = cState.bg.z * cState.bg.w;
     cState.wd->ClearValue.color.float32[3] = cState.bg.w;
+}
+
+void angleUpdate(vulkRend &myRend){
+    ImGuiIO& io=ImGui::GetIO();
+    if(!ImGui::IsWindowHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)){
+        ImVec2 delta=io.MouseDelta;
+
+        float sens=0.01f;
+        float yaw=delta.x*sens;
+        float pitch=delta.y*sens;
+        uniformBuffer tempUB=myRend.getUB();
+        tempUB.model=glm::rotate(tempUB.model,yaw,glm::vec3(0.0f,1.0f,0.0f));
+        tempUB.model=glm::rotate(tempUB.model,pitch,glm::vec3(1.0f,0.0f,0.0f));
+        myRend.updateUB(tempUB);
+    }
 }

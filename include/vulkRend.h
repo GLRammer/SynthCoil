@@ -21,7 +21,7 @@ struct uniformBuffer
     float scale = 1.0;
     bool operator==(const uniformBuffer &other) const
     {
-        return (model == other.model && view == other.view && proj == other.proj, scale == other.scale);
+        return (model == other.model && view == other.view && proj == other.proj && scale == other.scale);
     }
     bool isEmpty() const
     {
@@ -100,6 +100,8 @@ private:
     /// @brief Error storage
     std::string errStr;
 
+    uniformBuffer lastUB;
+
 public:
     /// @brief Constructed with Vulkan values
     vulkRend(
@@ -134,6 +136,8 @@ public:
     /// @param uBuff    Uniform buffer input
     /// @return     False on failure, true on success, use getErr() for more info
     bool updateUB(const uniformBuffer &uBuff);
+
+    const uniformBuffer getUB();
 
     // Update target color for the shape. Returns false on failure.
     bool updateColor(float r = 1.0, float g = 1.0, float b = 1.0);

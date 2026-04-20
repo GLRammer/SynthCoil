@@ -813,7 +813,13 @@ bool vulkRend::updateUB(const uniformBuffer &uBuff)
     // Unmap indMem
     vkUnmapMemory(device, uBMem);
 
+    lastUB=uBuff;
+
     return true;
+}
+
+const uniformBuffer vulkRend::getUB(){
+    return lastUB;
 }
 
 bool vulkRend::updateColor(float r, float g, float b)
@@ -962,7 +968,8 @@ uniformBuffer defaultUB()
 {
     uniformBuffer ub{};
     ub.model = glm::mat4(1.0f);
-    ub.view = glm::lookAt(glm::vec3(15.0f, 15.0f, 0.0f),
+    ub.model = glm::rotate(ub.model,0.75f,glm::vec3(1,0,0));
+    ub.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 15.0f),
                           glm::vec3(0.0f),
                           glm::vec3(0.0f, 1.0f, 0.0f));
     ub.proj = glm::perspective(glm::radians(45.0f), 1.0f, 1.0f, 100.0f);
