@@ -21,12 +21,6 @@ layout(binding = 1) readonly buffer myBuff{
 // Apply gausian bump
 float bumper(vec2 pos, float dist, float smval) {
     float dx = abs(length(pos)-dist);
-    if(smval<=0.0){
-        if(dx<=0.1){
-            return 1;
-        }
-        return 0;
-    }
     if(dx>=smval){
         return 0;
     }
@@ -41,6 +35,9 @@ vec2 bumpRunner(vec3 pos) {
         return vec2(0.0,0.0);
     }
     float smval=buf.data[0];
+    if(smval<=0.0){
+        smval=0.01;
+    }
     int i=2;
     float y=0,a=0;
     while(i+1<n){
@@ -64,7 +61,7 @@ void main()
 
     // 3D RENDER VERSION
     vec2 temp=bumpRunner(inPos);
-    gl_Position=ub.proj*ub.view*vec4(inPos.x,inPos.y-temp.x,inPos.z,1.0);
+    gl_Position=ub.proj*ub.view*ub.model*vec4(inPos.x,inPos.y-temp.x,inPos.z,1.0);
 
     // Clamp alpha just to be safe
     fragAlpha = clamp(temp.y, 0.0, 1.0);

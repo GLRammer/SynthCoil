@@ -8,6 +8,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <string>
 #include <iostream>
+#include <filesystem>
 #include "vulkRend.h"
 #include "audio.h"
 #include "freqs.h"
@@ -39,8 +40,14 @@ struct progState
     SDL_AudioDeviceID *devices;
     freqHolder myFreqs;
     int devCnt;
+    // Background color
+    ImVec4 bg = {0.1, 0.2, 0.3, 1.0};
+    // Shape color
+    float scolor[3] = {1.0, 1.0, 1.0};
+    // Smoothing value
+    float smooth = {0.5};
     // Debug Flag
-    bool debug=false;
+    bool debug = false;
 };
 
 extern void check_vk_result(VkResult err);
@@ -87,7 +94,7 @@ bool runLoop(progState &cState);
 int eventPoll(SDL_Event &event, progState &cState);
 
 // Display final shape
-bool finalDisp();
+bool finalDisp(vulkRend &myRend);
 
 // Display device selection prompt
 bool devSelect(progState &cState, bool &devSel, int &devselected);
@@ -100,3 +107,9 @@ void volBar(ImVec2 volBarDim, float lastMag);
 
 // Fetch audio device info for selection
 bool audioDevFetch(progState &cState);
+
+// Push bg color to renderer
+void bgPush(progState &cState);
+
+// Rotate shape from mouse drag
+void angleUpdate(vulkRend &myRend);

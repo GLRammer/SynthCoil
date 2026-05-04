@@ -1,37 +1,50 @@
 #include "shapeGen.h"
 
+// IDEA: redo with better memory allocation
+//      maybe add parallel?
 void shapeGen::generate()
 {
+    // Clear vertices and indices
     vertecies.clear();
     indexes.clear();
     vertecies.reserve(segCnt * segCnt);
     indexes.reserve(segCnt * segCnt * 6);
+
+    // Forward declare variables
     float outterRad = scale;
     float u, cu, su, v, dv, x, y, z;
     int i, j, nextI, nextJ;
 
+    // For angle from center
     for (i = 0; i < segCnt; i++)
     {
+        // Same math as a torus
         u = (float)i / (float)segCnt * 2.0f * M_PI;
         cu = std::cos(u);
         su = std::sin(u);
         nextI = (i + 1) % segCnt;
+        // For distance from center, draw rings
         for (j = 0; j < segCnt; j++)
         {
+            // Altered torus math to be flat
             v = (float)j / (float)segCnt;
-            dv = v*outterRad;
+            dv = v * outterRad;
             x = dv * cu;
             z = dv * su;
-            y=0.0f;
+            y = 0.0f;
 
+            // Store vertices
             shapeVertex vert;
             vert.pos[0] = x;
             vert.pos[1] = y;
             vert.pos[2] = z;
-            vert.alpha=0;
+            vert.alpha = 0;
             vertecies.push_back(vert);
+
+            // Store indices (same as a Torus)
             nextJ = (j + 1) % segCnt;
-            if (nextJ!=0){
+            if (nextJ != 0)
+            {
                 indexes.push_back(i * segCnt + j);
                 indexes.push_back(nextI * segCnt + j);
                 indexes.push_back(nextI * segCnt + nextJ);
@@ -53,7 +66,6 @@ shapeGen::shapeGen()
     generate();
 }
 
-
 void shapeGen::setSegCnt(int count)
 {
     if (count < 20)
@@ -68,6 +80,7 @@ void shapeGen::setSegCnt(int count)
 
 bool shapeGen::getLatestShape(std::vector<shapeVertex> &vertBuff, std::vector<int> &indBuff)
 {
+    // Handle empty input
     if (vertecies.size() <= 0)
     {
         errString = "No data available!";
@@ -80,13 +93,17 @@ bool shapeGen::getLatestShape(std::vector<shapeVertex> &vertBuff, std::vector<in
 
 int shapeGen::getVertCnt() { return vertecies.size(); }
 
-float shapeGen::getScale(){return scale;}
+float shapeGen::getScale() { return scale; }
 
-void shapeGen::setScale(float newS){
-    if(newS>1){
-        scale=newS;
-    }else{
-        scale=1;
+void shapeGen::setScale(float newS)
+{
+    if (newS > 1)
+    {
+        scale = newS;
+    }
+    else
+    {
+        scale = 1;
     }
 }
 

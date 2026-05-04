@@ -1,7 +1,7 @@
+#include "vulkRend.h"
 #include "audio.h"
 #include "freqs.h"
 #include "shapeGen.h"
-#include "vulkRend.h"
 #include <string>
 #include <iostream>
 
@@ -18,34 +18,36 @@ int main(int argc, char *argv[])
         return 1;
     }
     // Initialize state object
-    progState cState{};
-    // cState.debug=true;
-
-    // fetch audio devices
-    if (!audioDevFetch(cState))
-        return -1;
-
-    // run custom setup function
-    if (!customSetup(cState))
-        return -1;
-
-    // run program loop
-    if (!runLoop(cState))
     {
-        return -1;
+        progState cState{};
+        // cState.debug=true;
+
+        // fetch audio devices
+        if (!audioDevFetch(cState))
+            return -1;
+
+        // run custom setup function
+        if (!customSetup(cState))
+            return -1;
+
+        // run program loop
+        if (!runLoop(cState))
+        {
+            return -1;
+        }
+
+        // Cleanup
+        SDL_free(cState.devices);
+        check_vk_result(cState.err);
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+
+        CleanupVulkanWindow(&g_MainWindowData);
+        CleanupVulkan();
+
+        SDL_DestroyWindow(cState.window);
     }
-
-    // Cleanup
-    SDL_free(cState.devices);
-    check_vk_result(cState.err);
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
-
-    CleanupVulkanWindow(&g_MainWindowData);
-    CleanupVulkan();
-
-    SDL_DestroyWindow(cState.window);
     SDL_Quit();
 
     return 0;

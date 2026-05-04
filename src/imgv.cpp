@@ -4,6 +4,8 @@
 
 #include "imgv.h"
 
+//////////THIS SECTION IS BASED ON EXAMPLE CODE/////////
+
 VkAllocationCallbacks *g_Allocator = nullptr;
 VkInstance g_Instance = VK_NULL_HANDLE;
 VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
@@ -360,6 +362,8 @@ void FramePresent(ImGui_ImplVulkanH_Window *wd)
     wd->SemaphoreIndex = (wd->SemaphoreIndex + 1) % wd->SemaphoreCount; // Now we can use the next set of semaphores
 }
 
+/////////////////END EXAMPLE CODE////////////
+
 // Custom function to pretty up main
 bool customSetup(progState &cState)
 {
@@ -404,7 +408,6 @@ bool customSetup(progState &cState)
     ImGuiIO &io = ImGui::GetIO();
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -413,7 +416,6 @@ bool customSetup(progState &cState)
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForVulkan(cState.window);
     ImGui_ImplVulkan_InitInfo init_info = {};
-    // init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
     init_info.Instance = g_Instance;
     init_info.PhysicalDevice = g_PhysicalDevice;
     init_info.Device = g_Device;
@@ -464,18 +466,20 @@ bool runLoop(progState &cState)
     int devselected = 0;
 
     // Initialize custom vulkan renderer
+    std::filesystem::path vert("shaders/coil.vert.spv"), frag("shaders/coil.frag.spv");
     vulkRend myRend(g_PhysicalDevice, g_Device, g_Queue, g_QueueFamily, cState.wd->RenderPass);
-    if (!myRend.initPipe("shaders/coil.vert.spv", "shaders/coil.frag.spv"))
+    if (!myRend.initPipe(vert.string(), frag.string()))
     {
         std::cerr << myRend.getErr() << std::endl;
         return false;
     }
 
-    // Generate initial shape 
-    std::vector<shapeVertex>verts;
-    std::vector<int>inds;
-    myShape.getLatestShape(verts,inds);
-    if(!myRend.updateMesh(verts,inds)){
+    // Generate initial shape
+    std::vector<shapeVertex> verts;
+    std::vector<int> inds;
+    myShape.getLatestShape(verts, inds);
+    if (!myRend.updateMesh(verts, inds))
+    {
         std::cerr << "Rend Mesh Error:" << myRend.getErr();
         return false;
     }
@@ -496,14 +500,17 @@ bool runLoop(progState &cState)
         ImGui::NewFrame();
 
         {
+            // Final display
             if (displayshape)
             {
-                done = finalDisp();
+                done = finalDisp(myRend);
             }
+            // Device selection
             else if (!devSel)
             {
                 done = devSelect(cState, devSel, devselected);
             }
+            // Active State
             else
             {
                 done = runningState(cState, volBarDim, lastMag, myRend, myShape, displayshape);
@@ -516,10 +523,14 @@ bool runLoop(progState &cState)
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
         if (!is_minimized)
         {
+            // Push bg colors
+            bgPush(cState);
+            // If device is selected, run custom renderer
             if (devSel)
             {
                 myFrameRender(cState.wd, draw_data, myRend);
             }
+            // else run renderer from example code
             else
             {
                 FrameRender(cState.wd, draw_data);
@@ -534,6 +545,7 @@ bool runLoop(progState &cState)
     return true;
 }
 
+// Shrink SDL3 event polling
 int eventPoll(SDL_Event &event, progState &cState)
 {
     bool done = false;
@@ -559,22 +571,29 @@ int eventPoll(SDL_Event &event, progState &cState)
     return 0;
 }
 
-bool finalDisp()
+// Display the final shape and allow the user to continue manipulating it
+bool finalDisp(vulkRend &myRend)
 {
-    bool done=false;
+    bool done = false;
     ImGui::Begin("Lookie");
+
+    // Handle rotations
+    angleUpdate(myRend);
+
     if (ImGui::Button("Seen"))
     {
-        done= true;
+        done = true;
     }
     ImGui::End();
     return done;
 }
 
+// Device selection window
 bool devSelect(progState &cState, bool &devSel, int &devselected)
 {
     // If debug, skip me
-    if(cState.debug){
+    if (cState.debug)
+    {
         if (cState.myAudio.selectDev(cState.devices[devselected]))
         {
             devSel = true;
@@ -590,7 +609,7 @@ bool devSelect(progState &cState, bool &devSel, int &devselected)
 
     ImGui::Begin("Select Device");
 
-    // Query device
+    // Query for device
     ImGui::Text("Please select an input device.");
     ImGui::Text("%d devices detected.", cState.devCnt);
 
@@ -632,6 +651,7 @@ bool devSelect(progState &cState, bool &devSel, int &devselected)
     return done;
 }
 
+// Runtime window
 bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend &myRend, shapeGen &myShape, bool &displayShape)
 {
     bool done = false;
@@ -640,10 +660,10 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
     audio &myAudio = cState.myAudio;
     freqHolder &myFreqs = cState.myFreqs;
 
-    ImGui::Begin("Current Volume");
+    ImGui::Begin("Control Panel");
 
     // Check for audio in stream
-    if (myAudio.available() >= 0)
+    if (myAudio.available() > 0)
     {
         // grab frequency data
         myFreqs.freqGet(myAudio);
@@ -651,9 +671,10 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
         lastMag = std::fabs(myFreqs.getPeak().first);
 
         // Pass peak frequencies to renderer
-        if(!myRend.updateFreqs(myFreqs.getTop())){
-            std::cerr<<myRend.getErr()<<std::endl;
-            done=true;
+        if (!myRend.updateFreqs(myFreqs.getTop()))
+        {
+            std::cerr << myRend.getErr() << std::endl;
+            done = true;
         }
 
         // TODO make this optional
@@ -663,7 +684,9 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
         //     std::cerr << myAudio.getErr() << std::endl;
         //     done = true;
         // }
-    }else if(myAudio.getErr()!= ""){
+    }
+    else if (myAudio.getErr() != "")
+    {
         std::cerr << myAudio.getErr() << std::endl;
         done = true;
     }
@@ -671,10 +694,55 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
     // Draw volume bar
     volBar(volBarDim, lastMag);
 
+    // Color customizers
+    ImGui::ColorEdit3("Background color", (float *)&cState.bg);
+    ImGui::ColorEdit3("Shape color", cState.scolor);
+    if (!myRend.updateColor(cState.scolor))
+    {
+        std::cerr << myRend.getErr() << std::endl;
+        done = true;
+    }
+
+    // Smoothing value slider
+    ImGui::SliderFloat("Smoothing", &cState.smooth, 0.0, 1.0);
+    myRend.updateSmooth(cState.smooth);
+
+    // Min/Max Hz slider
+    // TODO: change to number input, dragfloatrange sux
+    float tempMin, tempMax;
+    myFreqs.getMinMax(tempMin, tempMax);
+    ImGui::DragFloatRange2("Hz Range", &tempMin, &tempMax, 10.0, 20, HEARINGMAX, "Min: %f", "Max: %f");
+    myFreqs.setMinMax(tempMin, tempMax);
+
+    // Gain slider
+    float tempGain = (1.0 - myFreqs.getGain()) * 10.0;
+    ImGui::SliderFloat("Gain", &tempGain, 0.0, 10.0);
+    if (ImGui::Button("Automatic Gain"))
+    {
+        if (myFreqs.autoGain)
+        {
+            myFreqs.setGain(1.0 - (tempGain / 10));
+        }
+        else
+        {
+            myFreqs.setGain(-1.0f);
+        }
+    }
+    if (!myFreqs.autoGain)
+    {
+        myFreqs.setGain(1.0 - (tempGain / 10));
+    }
+
+    // Framecount editor
+    int tempFC = myFreqs.getFrames();
+    ImGui::SliderInt("Buffer frames", &tempFC, 1, 20);
+    myFreqs.setFrames(tempFC);
+
+    // Handle rotations
+    angleUpdate(myRend);
+
     if (ImGui::Button("End Stream"))
     {
-        // Print daig data
-        std::cout << "Max freq= " << myFreqs.getPeak().second << " at " << myFreqs.getPeak().first << std::endl;
         displayShape = true;
     }
 
@@ -683,6 +751,7 @@ bool runningState(progState &cState, ImVec2 volBarDim, float &lastMag, vulkRend 
     return done;
 }
 
+// Render volume bar
 void volBar(ImVec2 volBarDim, float lastMag)
 {
 
@@ -697,16 +766,18 @@ void volBar(ImVec2 volBarDim, float lastMag)
         IM_COL32(50, 50, 50, 255));
 
     // Fill for volume
+    // TODO IDEA: change from solid to gradient
     float volHeight = volBarDim.y * lastMag;
     barlist->AddRectFilled(
         ImVec2(barplace.x, barplace.y + volBarDim.y - volHeight),
         ImVec2(barplace.x + volBarDim.x, barplace.y + volBarDim.y),
-        IM_COL32(255, 50, 50, 255));
+        IM_COL32(50, 255, 50, 255));
 
     // Reserve room for volume bar
     ImGui::Dummy(volBarDim);
 }
 
+// Fetch available audio devices
 bool audioDevFetch(progState &cState)
 {
     cState.devices = SDL_GetAudioRecordingDevices(&cState.devCnt);
@@ -716,4 +787,38 @@ bool audioDevFetch(progState &cState)
         return false;
     }
     return true;
+}
+
+// Push colors to background
+void bgPush(progState &cState)
+{
+    cState.wd->ClearValue.color.float32[0] = cState.bg.x * cState.bg.w;
+    cState.wd->ClearValue.color.float32[1] = cState.bg.y * cState.bg.w;
+    cState.wd->ClearValue.color.float32[2] = cState.bg.z * cState.bg.w;
+    cState.wd->ClearValue.color.float32[3] = cState.bg.w;
+}
+
+// Rotate shape using mouse dragging
+void angleUpdate(vulkRend &myRend)
+{
+    ImGuiIO &io = ImGui::GetIO();
+    // If not in control panel while actively dragging
+    // TODO: change window target to shape rendering, current implementation drags on color picker and more
+    if (!ImGui::IsWindowHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        ImVec2 delta = io.MouseDelta;
+
+        // Set sensitivity
+        float sens = 0.01f;
+
+        // Store rotation data
+        float yaw = delta.x * sens;
+        float pitch = delta.y * sens;
+
+        // Apply rotations
+        uniformBuffer tempUB = myRend.getUB();
+        tempUB.model = glm::rotate(tempUB.model, yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+        tempUB.model = glm::rotate(tempUB.model, pitch, glm::vec3(1.0f, 0.0f, 0.0f));
+        myRend.updateUB(tempUB);
+    }
 }
