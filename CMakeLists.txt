@@ -44,6 +44,7 @@ target_link_libraries(synthDemo PRIVATE Vulkan::Vulkan)
 
 # Grab GLSLC for compiling shaders
 find_program(GLSLC_EXECUTABLE glslc HINTS ${Vulkan_GLSLC_EXECUTABLE})
+# find_program(GLSLC_EXECUTABLE glslc)
 
 # Grab GLM for graphics
 find_package(glm QUIET CONFIG)
