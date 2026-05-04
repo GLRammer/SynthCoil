@@ -62,6 +62,7 @@ vulkRend::vulkRend(
 
 bool vulkRend::chromaPass()
 {
+    // Check for color transition
     transition = false;
     for (int i = 0; i < 3; i++)
     {
@@ -95,27 +96,33 @@ float vulkRend::chromaMath(float a, float b)
 {
     float diff = fabs(a - b);
     float max = std::max(a, b);
-    if (diff / max < 0.1)
+    // If difference is less than 1%, just set them equal
+    if (diff / max < 0.01)
     {
         return b;
     }
+    // Set to average of values
     return (a + b) / 2.0;
 }
 
 bool vulkRend::initChroma()
 {
-    // grab buffer size
+    // Grab buffer size
     VkDeviceSize sz = sizeof(float) * 3;
 
+    // Check for nulls
     if (chromaBuff != VK_NULL_HANDLE)
     {
+        vkDestroyBuffer(device, chromaBuff, nullptr);
         chromaBuff = VK_NULL_HANDLE;
     }
-    if (chromaMem = VK_NULL_HANDLE)
+    if (chromaMem != VK_NULL_HANDLE)
     {
+        vkFreeMemory(device, chromaMem, nullptr);
         chromaMem = VK_NULL_HANDLE;
     }
 
+    // Create buffer
     if (!createBuffer(sz, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, chromaBuff, chromaMem))
     {
         return false;
@@ -468,7 +475,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     ubBinding.pImmutableSamplers = nullptr;
     bindings[0] = ubBinding;
 
-    // frequency buffer setup for GPU side generation
+    // Frequency buffer setup for GPU side generation
     VkDescriptorSetLayoutBinding freqBind{};
     freqBind.binding = 1;
     freqBind.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -477,6 +484,7 @@ bool vulkRend::initPipe(const std::string &vertPath, const std::string &fragPath
     freqBind.pImmutableSamplers = nullptr;
     bindings[1] = freqBind;
 
+    // Color buffer
     VkDescriptorSetLayoutBinding chromaBind{};
     chromaBind.binding = 2;
     chromaBind.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -660,7 +668,7 @@ bool vulkRend::updateMesh(const std::vector<shapeVertex> &verts, const std::vect
 
 bool vulkRend::updateFreqs(const std::vector<std::pair<float, float>> &freqs)
 {
-
+    // Handle empty input
     if (freqs.size() == 0)
     {
         errStr = "Empty frequency vector provided";
@@ -694,21 +702,22 @@ bool vulkRend::updateFreqs(const std::vector<std::pair<float, float>> &freqs)
         return false;
     }
 
+    // Temp buffer
     std::vector<float> tempVec;
     tempVec.reserve(2 * freqs.size() + 2);
+
+    // Store smoothing value and buffer size
     tempVec.push_back(smooth);
     tempVec.push_back(freqs.size() * 2 + 2);
-    // errStr="Buffer contents:\n";
-    // errStr+=std::to_string(smooth)+ "\n";
-    // errStr+=std::to_string(freqs.size());
+
+    // Store inputs
     for (int i = 0; i < freqs.size(); i++)
     {
-        // errStr+="\n"+std::to_string(freqs[i].first) + ", ";
         tempVec.push_back(freqs[i].first);
-        // errStr+=std::to_string(freqs[i].second);
         tempVec.push_back(freqs[i].second);
     }
 
+    //  Copy buffer to memory
     memcpy(data, tempVec.data(), sz);
 
     // Unmap freqMem
@@ -720,6 +729,7 @@ bool vulkRend::updateFreqs(const std::vector<std::pair<float, float>> &freqs)
 
 bool vulkRend::initFreqs()
 {
+    // Check for nulls
     if (freqBuff != VK_NULL_HANDLE)
     {
         vkDestroyBuffer(device, freqBuff, nullptr);
@@ -731,7 +741,10 @@ bool vulkRend::initFreqs()
         freqMem = VK_NULL_HANDLE;
     }
 
+    // Store buffer size
     int sz = sizeof(float) * ((2 * maxFreqCnt) + 2);
+
+    // Make buffer
     if (!createBuffer(
             sz,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -746,7 +759,10 @@ bool vulkRend::initFreqs()
 
 bool vulkRend::initUB()
 {
+    // Store buffer size
     VkDeviceSize sz = sizeof(uniformBuffer);
+
+    // Check for nulls
     if (uBMem != VK_NULL_HANDLE)
     {
         vkFreeMemory(device, uBMem, nullptr);
@@ -757,6 +773,8 @@ bool vulkRend::initUB()
         vkDestroyBuffer(device, uB, nullptr);
         uB = VK_NULL_HANDLE;
     }
+
+    // Create buffer
     if (!createBuffer(
             sz,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -813,14 +831,13 @@ bool vulkRend::updateUB(const uniformBuffer &uBuff)
     // Unmap indMem
     vkUnmapMemory(device, uBMem);
 
-    lastUB=uBuff;
+    // Store buffer for later comparisons
+    lastUB = uBuff;
 
     return true;
 }
 
-const uniformBuffer vulkRend::getUB(){
-    return lastUB;
-}
+const uniformBuffer vulkRend::getUB() { return lastUB; }
 
 bool vulkRend::updateColor(float r, float g, float b)
 {
@@ -830,13 +847,14 @@ bool vulkRend::updateColor(float r, float g, float b)
 
 bool vulkRend::updateColor(float rgb[3])
 {
-    // check if data is new
+    // Check if data is new
     bool eq = true;
     for (int i = 0; i < 3; i++)
     {
         if (rgb[i] != targChroma[i])
         {
             eq = false;
+            // Set target color
             targChroma[i] = rgb[i];
         }
     }
@@ -968,12 +986,11 @@ uniformBuffer defaultUB()
 {
     uniformBuffer ub{};
     ub.model = glm::mat4(1.0f);
-    ub.model = glm::rotate(ub.model,0.75f,glm::vec3(1,0,0));
+    ub.model = glm::rotate(ub.model, 0.75f, glm::vec3(1, 0, 0));
     ub.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 15.0f),
                           glm::vec3(0.0f),
                           glm::vec3(0.0f, 1.0f, 0.0f));
     ub.proj = glm::perspective(glm::radians(45.0f), 1.0f, 1.0f, 100.0f);
     ub.scale = 5.0;
-    // ub.proj=glm::ortho(-1,1,-1,1);
     return ub;
 }

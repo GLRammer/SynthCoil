@@ -39,13 +39,11 @@ add_subdirectory("vendor/SDL" "vendor/SDL" EXCLUDE_FROM_ALL)
 target_link_libraries(synthDemo PRIVATE SDL3::SDL3)
 
 # Grab Vulkan
-# TODO figure out how to vendor Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(synthDemo PRIVATE Vulkan::Vulkan)
 
 # Grab GLSLC for compiling shaders
 find_program(GLSLC_EXECUTABLE glslc HINTS ${Vulkan_GLSLC_EXECUTABLE})
-# find_program(GLSLC_EXECUTABLE glslc)
 
 # Grab GLM for graphics
 find_package(glm QUIET CONFIG)
@@ -71,7 +69,6 @@ set(SPIRV_OUTPUTS)
 foreach(SHADER ${SHADERS})
     get_filename_component(FILE_NAME ${SHADER} NAME)
     set(SPIRV ${CMAKE_BINARY_DIR}/shaders/${FILE_NAME}.spv)
-
     add_custom_command(
         OUTPUT ${SPIRV}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders

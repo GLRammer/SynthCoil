@@ -1,6 +1,5 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
-// #include <fftw3.h> Unused atm and may be implemented elsewhere
 #include <string>
 #include <cmath>
 #include <iostream>
@@ -36,7 +35,9 @@ public:
     /// @brief Wipe the stream buffer. This discards data but allows fresh data to be collected.
     /// @return False on failure, check getErr() for details.
     bool clearBuff();
-    std::string getErr();
+    /// @brief Check stream to see how much data is available
+    /// @return     Number of bytes available or -1 for error
     int available();
+    std::string getErr();
     ~audio();
 };

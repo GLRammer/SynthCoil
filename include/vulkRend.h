@@ -9,7 +9,6 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-// #include "imgv.h"
 #include "shapeGen.h"
 
 // Uniform buffer for 3d rendering
@@ -52,15 +51,27 @@ private:
     VkBuffer uB = VK_NULL_HANDLE;
     VkDeviceMemory uBMem = VK_NULL_HANDLE;
 
+    // Smoothing
     float smooth = 0.5;
+
+    // Maximum number of frequencies to render
     int maxFreqCnt = 50;
 
     // Color stuffs
     float chroma[3] = {1.0, 1.0, 1.0};
     float targChroma[3] = {1.0, 1.0, 1.0};
     bool transition = true;
+
+    /// @brief Calculate new chroma value
+    /// @param a    Current value
+    /// @param b    Target value
+    /// @return     Transition value
     float chromaMath(float a, float b);
+
+    // Check if target chroma is reached and update chroma buffer
     bool chromaPass();
+
+    // Initialize chroma memory and buffer if not existant already
     bool initChroma();
     VkBuffer chromaBuff = VK_NULL_HANDLE;
     VkDeviceMemory chromaMem = VK_NULL_HANDLE;

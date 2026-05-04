@@ -45,7 +45,7 @@ struct progState
     // Shape color
     float scolor[3] = {1.0, 1.0, 1.0};
     // Smoothing value
-    float smooth={0.5};
+    float smooth = {0.5};
     // Debug Flag
     bool debug = false;
 };
@@ -108,6 +108,7 @@ void volBar(ImVec2 volBarDim, float lastMag);
 // Fetch audio device info for selection
 bool audioDevFetch(progState &cState);
 
+// Push bg color to renderer
 void bgPush(progState &cState);
 
 // Rotate shape from mouse drag
